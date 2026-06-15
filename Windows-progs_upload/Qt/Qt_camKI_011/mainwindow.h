@@ -1,5 +1,3 @@
-// changelog: Python Embedded KI Integration
-
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
@@ -15,13 +13,6 @@
 #include <vector>
 #include <map>
 
-// ========================================================
-// Python Vorwärtsdeklaration
-// (Python.h NICHT hier einbinden!)
-// ========================================================
-struct _object;
-typedef _object PyObject;
-
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
 QT_END_NAMESPACE
@@ -34,6 +25,7 @@ public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow() override;
 
+    // Ermittelt die dynamische Slot-Anzahl anhand des höchsten Keys in der geladenen Map + 1
     int getNumClasses() const;
 
 private slots:
@@ -41,7 +33,6 @@ private slots:
     void on_vidScrshot_clicked();
     void on_vidRun_clicked();
     void on_quitButton_released();
-
     void on_btnSaveKIpng_clicked();
     void on_btnLoadDataset_clicked();
     void on_btnExportCSV_clicked();
@@ -50,62 +41,39 @@ private slots:
     void on_btnKiStop_clicked();
     void on_btnKiTrain_clicked();
 
+    void on_timer_snapshot();
+    void readKiOutput();
+    void readKiError();
+    void readTrainOutput();
+
 private:
-    // =========================
-    // Basis / Setup
-    // =========================
+    // Hilfsfunktion zum Einlesen der Konfigurationsdatei beim Start
     void ladeLabelsKonfiguration();
 
-    // =========================
-    // UI + Kamera
-    // =========================
-    Ui::MainWindow *ui = nullptr;
+    // Die zentrale Transformations-Funktion für das 224x224 Graustufen-Bild
+    QImage prozessiereKiBild(const QImage &quellBild);
 
+    Ui::MainWindow *ui;
     QCamera *m_camera = nullptr;
     QImageCapture *m_imageCapture = nullptr;
     QMediaCaptureSession m_captureSession;
     QVideoSink *m_sink = nullptr;
-
     QImage m_currentImage;
 
     QString m_datasetPath;
 
-    // =========================
-    // Labels / Dataset
-    // =========================
+    // Dynamische ID-Tabelle (wird aus labels.cfg geladen)
     std::map<int, QString> m_klassenNamen;
 
     std::vector<std::vector<float>> m_trainingInputs;
     std::vector<std::vector<float>> m_trainingTargets;
 
-    // =========================
-    // Training Status
-    // =========================
-    bool m_kiTrainingAktiv = false;
-
-    // =========================
-    // Python Embedded KI
-    // =========================
-    bool m_pythonInit = false;
-    bool m_pythonReady = false;
-
-    PyObject* m_pyModule = nullptr;
-    PyObject* m_pyInferFunc = nullptr;
-
-    // Python Lifecycle
-    bool initPython();
-    void shutdownPython();
-
-    // Inference
-    void runPythonInference(const std::vector<float>& input);
-    void runPythonInferenceFromImage(const QImage &img);
-
-    // =========================
-    // Altbestand
-    // =========================
+    // Für die asynchrone Live-Erkennung über das RAM-Skript
     QProcess *m_kiProzess = nullptr;
-
     bool m_kiErkennungAktiv = false;
+
+    // Status-Merker für das laufende Training
+    bool m_kiTrainingAktiv = false;
 };
 
 #endif // MAINWINDOW_H

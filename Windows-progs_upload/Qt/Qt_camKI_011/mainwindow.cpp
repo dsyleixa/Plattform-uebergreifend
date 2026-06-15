@@ -5,6 +5,8 @@
 
 
 // changelog
+// 011
+// 009  funktioniert mit beiden py scripts
 // 008 KI Muster-Labels auslagern in labels.cfg
 // 007 vereinfachte Speicher/Klassifizierungsmethode
 // 006 (Zentraler globaler Pfad als 1 Datei), prepareTensorFlowInput,
@@ -16,10 +18,26 @@
 // 001 3.Fenster für 224x224
 // 000 2 Fenster für 640x480
 
+//*************************
+// ***SNIP***
+//*************************
+// Qt_camKI_
+//
+// für Python:
+// pip install tensorflow pandas numpy
 
-#define PY_SSIZE_T_CLEAN
-#include <Python.h>
 
+// changelog
+// 008 KI Muster-Labels auslagern in labels.cfg
+// 007 vereinfachte Speicher/Klassifizierungsmethode
+// 006 (Zentraler globaler Pfad als 1 Datei), prepareTensorFlowInput,
+// 005 Qt_camKI_005 Basis
+// 005 Qt_cam005 als Sicherung für Qt_cam004, ab jetzt jetzt Qt_camKI_005
+// 004 224x224 speichern unter "ZZ_"+alias
+// 003 3.Fenster 224x224, KI-Graustufen + Autokontrast
+// 002 3.Fenster für 224x224, code optim.
+// 001 3.Fenster für 224x224
+// 000 2 Fenster für 640x480
 
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
@@ -44,299 +62,25 @@
 #include <QDateTime>
 #include <QInputDialog>
 #include <QLayout>
-
-
+#include <QTextStream>
 
 using namespace std;
 
 
-// =========================================================
-// ZENTRALE BILDVERARBEITUNG
-// =========================================================
-QImage prozessiereKiBild(const QImage &quellBild)
-{
-    if (quellBild.isNull()) return QImage();
 
-    int w = quellBild.width();
-    int h = quellBild.height();
-    int minDim = std::min(w, h);
-    int startX = (w - minDim) / 2;
-    int startY = (h - minDim) / 2;
 
-    QImage quadrat = quellBild.copy(startX, startY, minDim, minDim);
-    QImage kiBild = quadrat.scaled(224, 224, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
-    kiBild = kiBild.convertToFormat(QImage::Format_Grayscale8);
 
-    int minPixel = 255, maxPixel = 0;
 
-    for (int y = 0; y < kiBild.height(); ++y) {
-        uchar *row = kiBild.scanLine(y);
-        for (int x = 0; x < kiBild.width(); ++x) {
-            if (row[x] < minPixel) minPixel = row[x];
-            if (row[x] > maxPixel) maxPixel = row[x];
-        }
-    }
 
-    if (maxPixel > minPixel) {
-        for (int y = 0; y < kiBild.height(); ++y) {
-            uchar *row = kiBild.scanLine(y);
-            for (int x = 0; x < kiBild.width(); ++x) {
-                row[x] = static_cast<uchar>(((row[x] - minPixel) * 255) / (maxPixel - minPixel));
-            }
-        }
-    }
 
-    return kiBild;
-}
 
-
-
-// =====================================================
-// Python Initialisierung
-// =====================================================
-bool MainWindow::initPython()
-{
-    if (m_pythonReady)
-        return true;
-
-    if (!Py_IsInitialized()) {
-        Py_Initialize();
-    }
-
-    if (!Py_IsInitialized()) {
-        cout << "[PYTHON] Initialisierung fehlgeschlagen." << endl;
-        return false;
-    }
-
-    m_pythonInit = true;
-    m_pythonReady = true;
-
-    cout << "[PYTHON] Interpreter aktiv" << endl;
-
-    return true;
-}
-// initPython
-
-
-
-// =====================================================
-// Python Shutdown
-// =====================================================
-void MainWindow::shutdownPython()
-{
-    m_pyInferFunc = nullptr;
-    m_pyModule = nullptr;
-
-    if (Py_IsInitialized()) {
-        Py_Finalize();
-    }
-
-    m_pythonReady = false;
-    m_pythonInit = false;
-
-    cout << "[PYTHON] Interpreter beendet" << endl;
-}
-// shutdownPython
-
-
-// =====================================================
-// Inferenz aus Float-Vektor
-// =====================================================
-void MainWindow::runPythonInference(const std::vector<float>& input)
-{
-    if (!Py_IsInitialized())
-        return;
-
-    if (input.size() != 224 * 224)
-        return;
-
-    PyObject *mainModule = PyImport_AddModule("__main__");
-    if (!mainModule)
-        return;
-
-    PyObject *globals = PyModule_GetDict(mainModule);
-
-    PyRun_SimpleString(
-        "import tensorflow as tf\n"
-        "import numpy as np\n"
-        "import os\n"
-        );
-
-    QDir projDir(QCoreApplication::applicationDirPath());
-    projDir.cdUp();
-
-    QString modelPath =
-        projDir.absoluteFilePath("dataset/model.tflite");
-
-    QString labelsPath =
-        projDir.absoluteFilePath("dataset/labels.txt");
-
-    QFile labelFile(labelsPath);
-
-    QStringList labels;
-
-    if (labelFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        QTextStream in(&labelFile);
-
-        while (!in.atEnd()) {
-            QString line = in.readLine().trimmed();
-            if (!line.isEmpty())
-                labels << line;
-        }
-
-        labelFile.close();
-    }
-
-    PyObject *pyList = PyList_New(static_cast<Py_ssize_t>(input.size()));
-
-    for (size_t i = 0; i < input.size(); ++i) {
-        PyList_SetItem(
-            pyList,
-            static_cast<Py_ssize_t>(i),
-            PyFloat_FromDouble(input[i]));
-    }
-
-    PyDict_SetItemString(globals, "cpp_input", pyList);
-
-    QString cmd = QString(R"(
-import tensorflow as tf
-import numpy as np
-
-interpreter = tf.lite.Interpreter(
-    model_path=r"%1"
-)
-
-interpreter.allocate_tensors()
-
-input_details = interpreter.get_input_details()
-output_details = interpreter.get_output_details()
-
-arr = np.array(cpp_input,dtype=np.float32)
-arr = arr.reshape((1,224,224,1))
-
-interpreter.set_tensor(
-    input_details[0]['index'],
-    arr
-)
-
-interpreter.invoke()
-
-cpp_result = interpreter.get_tensor(
-    output_details[0]['index']
-)[0]
-)")
-                      .arg(modelPath);
-
-    PyRun_String(
-        cmd.toUtf8().constData(),
-        Py_file_input,
-        globals,
-        globals);
-
-    PyObject *result =
-        PyDict_GetItemString(globals, "cpp_result");
-
-    if (!result)
-        return;
-
-    PyObject *seq = PySequence_Fast(
-        result,
-        "output");
-
-    if (!seq)
-        return;
-
-    QString ausgabe;
-
-    Py_ssize_t count =
-        PySequence_Fast_GET_SIZE(seq);
-
-    for (Py_ssize_t i = 0; i < count; ++i) {
-
-        PyObject *item =
-            PySequence_Fast_GET_ITEM(seq, i);
-
-        double prob =
-            PyFloat_AsDouble(item);
-
-        if (prob > 0.5) {
-
-            QString label =
-                (i < labels.size())
-                    ? labels[(int)i]
-                    : QString("ID_%1").arg((int)i);
-
-            ausgabe +=
-                QString("%1 (%2%) ")
-                    .arg(label)
-                    .arg(prob * 100.0,0,'f',1);
-        }
-    }
-
-    if (ausgabe.isEmpty())
-        ausgabe = "Nichts erkannt";
-
-    ui->statusbar->showMessage(
-        "KI Live: " + ausgabe);
-
-    Py_DECREF(pyList);
-}
-// runPythonInference
-
-
-void MainWindow::runPythonInferenceFromImage(const QImage &img)
-{
-    if (!m_kiErkennungAktiv)
-        return;
-
-    if (!Py_IsInitialized())
-        return;
-
-    if (img.isNull())
-        return;
-
-    // Bild auf KI-Format bringen
-    QImage kiBild = prozessiereKiBild(img);
-
-    if (kiBild.isNull())
-        return;
-
-    // 224x224 Graustufen -> Float Array 0..1
-    std::vector<float> input;
-    input.reserve(224 * 224);
-
-    for (int y = 0; y < 224; ++y) {
-        const uchar *row = kiBild.constScanLine(y);
-
-        for (int x = 0; x < 224; ++x) {
-            input.push_back(
-                static_cast<float>(row[x]) / 255.0f
-                );
-        }
-    }
-
-    runPythonInference(input);
-}
-// runPythonInferenceFromImage
-
-
-
-//========================================
-// ***SNIP***
-//========================================
-
-//========================================
-// ***SNIP***
-//========================================
-
-
-
-// =========================================================
-// MAINWINDOW
-// =========================================================
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
+    , m_camera(nullptr)
+    , m_imageCapture(nullptr)
+    , m_sink(nullptr)
+    , m_kiProzess(nullptr)
 {
     FreeConsole();
     AllocConsole();
@@ -345,37 +89,22 @@ MainWindow::MainWindow(QWidget *parent)
 
     ui->setupUi(this);
 
-    // =====================================================
-    // Dataset Pfad
-    // =====================================================
+    // Speicherpfad im Projektverzeichnis initialisieren
     QDir baseDir(QCoreApplication::applicationDirPath());
     baseDir.cdUp();
     baseDir.mkdir("dataset");
     m_datasetPath = baseDir.absoluteFilePath("dataset");
-
     cout << "Zentraler Speicherpfad: " << m_datasetPath.toStdString() << endl;
 
+    // Lädt die labels.cfg direkt beim Starten des Programms in den RAM
     ladeLabelsKonfiguration();
 
     ui->labelCameraLive->setScaledContents(true);
     ui->labelScreenshot->setScaledContents(true);
     ui->labelKiInput->setScaledContents(false);
 
-    // =====================================================
-    // PYTHON EMBED INIT (NEU)
-    // =====================================================
-    Py_Initialize();
-    if (!Py_IsInitialized()) {
-        cout << "[PYTHON] Initialisierung fehlgeschlagen!" << endl;
-    } else {
-        cout << "[PYTHON] Interpreter aktiv" << endl;
-    }
-
-    // =====================================================
-    // Kamera Setup
-    // =====================================================
+    // Kamera-Setup
     QCameraDevice standardCam = QMediaDevices::defaultVideoInput();
-
     if (standardCam.isNull()) {
         m_camera = new QCamera(this);
     } else {
@@ -384,54 +113,38 @@ MainWindow::MainWindow(QWidget *parent)
 
     m_imageCapture = new QImageCapture(this);
 
+    // Format auf 640x480 erzwingen, falls verfügbar
     const QList<QCameraFormat> formats = standardCam.videoFormats();
     if (!formats.isEmpty()) {
         QCameraFormat selectedFormat = formats.first();
-
         for (const QCameraFormat &format : formats) {
-            if (format.resolution().width() == 640 &&
-                format.resolution().height() == 480) {
+            if (format.resolution().width() == 640 && format.resolution().height() == 480) {
                 selectedFormat = format;
                 break;
             }
         }
-
         m_camera->setCameraFormat(selectedFormat);
     }
 
     m_captureSession.setCamera(m_camera);
     m_captureSession.setImageCapture(m_imageCapture);
-
     m_sink = new QVideoSink(this);
     m_captureSession.setVideoOutput(m_sink);
 
-    // =====================================================
-    // Live Stream Pipeline (unverändert)
-    // =====================================================
     static QElapsedTimer kiIntervallTimer;
     kiIntervallTimer.start();
 
-    connect(m_sink, &QVideoSink::videoFrameChanged, this,
-            [this](const QVideoFrame &frame)
-    {
+    connect(m_sink, &QVideoSink::videoFrameChanged, this, [this](const QVideoFrame &frame) {
         QImage liveBild = frame.toImage().convertToFormat(QImage::Format_RGB32);
-
         if (!liveBild.isNull()) {
             ui->labelCameraLive->setPixmap(QPixmap::fromImage(liveBild));
 
-            if (m_kiErkennungAktiv && m_kiProzess &&
-                m_kiProzess->state() == QProcess::Running)
-            {
+            if (m_kiErkennungAktiv && m_kiProzess && m_kiProzess->state() == QProcess::Running) {
                 if (kiIntervallTimer.elapsed() >= 100) {
                     kiIntervallTimer.restart();
 
                     QImage kiBild = prozessiereKiBild(liveBild);
-
-                    QByteArray rawBytes(
-                        reinterpret_cast<const char*>(kiBild.bits()),
-                        224 * 224
-                    );
-
+                    QByteArray rawBytes(reinterpret_cast<const char*>(kiBild.bits()), 224 * 224);
                     QByteArray b64Text = rawBytes.toBase64();
 
                     m_kiProzess->write("DATA:" + b64Text + "\n");
@@ -441,13 +154,7 @@ MainWindow::MainWindow(QWidget *parent)
         }
     });
 
-
-    // =====================================================
-    // Screenshot Handling
-    // =====================================================
-    connect(m_imageCapture, &QImageCapture::imageCaptured,
-            this, [this](int id, const QImage &preview)
-    {
+    connect(m_imageCapture, &QImageCapture::imageCaptured, this, [this](int id, const QImage &preview) {
         Q_UNUSED(id);
         if (preview.isNull()) return;
 
@@ -458,38 +165,129 @@ MainWindow::MainWindow(QWidget *parent)
         ui->labelKiInput->setPixmap(QPixmap::fromImage(kiBild));
     });
 
+    // Kamera leicht verzögert starten
     QTimer::singleShot(300, this, [this]() {
         if (m_camera) {
             m_camera->start();
+            cout << "Kamera-Hardware erfolgreich gestartet: "
+                 << m_camera->cameraFormat().resolution().width() << "x"
+                 << m_camera->cameraFormat().resolution().height() << endl;
         }
     });
 
     ui->progressBar->setValue(0);
 
-    // =====================================================
-    // QProcess bleibt erstmal bestehen (noch nicht ersetzt)
-    // =====================================================
+    // Verzeichnis erzwingen
+    QDir projDir(m_datasetPath);
+    projDir.cdUp();
+    projDir.mkdir("tmp");
+
+    QString absoluterScriptPfad = projDir.absoluteFilePath("tmp/generated_inference.py");
+    QFile::remove(absoluterScriptPfad);
+
+    cout << "  -> Schreibe Inferenz-Skript frisch unter: " << absoluterScriptPfad.toStdString() << endl;
+
+    QFile kiFile(absoluterScriptPfad);
+    if (kiFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream out(&kiFile);
+        out << "import sys\n"
+               "import base64\n"
+               "import numpy as np\n"
+               "import tensorflow as tf\n"
+               "import os\n\n"
+               "def main():\n"
+               "    base_dir = os.getcwd()\n"
+               "    model_path = os.path.join(base_dir, 'dataset', 'model.tflite')\n"
+               "    labels_path = os.path.join(base_dir, 'dataset', 'labels.txt')\n\n"
+               "    if not os.path.exists(model_path) or not os.path.exists(labels_path):\n"
+               "        print('RESULT: Fehler - model.tflite oder labels.txt fehlt!', flush=True)\n"
+               "        return\n\n"
+               "    labels = []\n"
+               "    with open(labels_path, 'r', encoding='utf-8') as f:\n"
+               "        for line in f:\n"
+               "            line = line.strip()\n"
+               "            if not line: continue\n"
+               "            # Korrektur: Holt das Element aus der Liste und wendet ERST DANNERST strip() an\n"
+               "            if ':' in line: line = line.split(':', 1)[1].strip()\n"
+               "            elif '=' in line: line = line.split('=', 1)[1].strip()\n"
+               "            labels.append(str(line))\n\n"
+               "    interpreter = tf.lite.Interpreter(model_path=model_path)\n"
+               "    interpreter.allocate_tensors()\n"
+               "    input_details = interpreter.get_input_details()\n"
+               "    output_details = interpreter.get_output_details()\n\n"
+               "    while True:\n"
+               "        line = sys.stdin.readline()\n"
+               "        if not line: break\n"
+               "        line = line.strip()\n"
+               "        if line.startswith('DATA:'):\n"
+               "            try:\n"
+               "                b64_data = line[5:]\n"
+               "                raw_bytes = base64.b64decode(b64_data)\n"
+               "                input_data = np.frombuffer(raw_bytes, dtype=np.uint8).astype(np.float32)\n"
+               "                input_data = input_data.reshape(1, 224, 224, 1) / 255.0\n"
+               "                interpreter.set_tensor(input_details['index'], input_data)\n"
+               "                interpreter.invoke()\n"
+               "                output_data = interpreter.get_tensor(output_details['index'])\n"
+               "                \n"
+               "                wahrscheinlichkeiten = np.array(output_data).flatten()\n"
+               "                ergebnisse = []\n"
+               "                \n"
+               "                for i in range(len(labels)):\n"
+               "                    if i < len(wahrscheinlichkeiten):\n"
+               "                        prob = wahrscheinlichkeiten[i]\n"
+               "                        if float(prob) > 0.5:\n";
+
+        // Prozentzeichen trennen für C++ Streams
+        out << "                            ergebnisse.append(str(labels[i]) + ' (' + str(round(float(prob)*100, 1)) + '" << "%" << "')\n";
+
+        out << "                if not ergebnisse:\n"
+               "                    print('RESULT: Nichts erkannt', flush=True)\n"
+               "                else:\n"
+               "                    print('RESULT: ' + ', '.join(ergebnisse), flush=True)\n"
+               "            except Exception as e:\n"
+               "                print('RESULT: Fehler beim Dekodieren (' + str(e) + ')', flush=True)\n\n"
+               "if __name__ == '__main__':\n"
+               "    main()\n";
+        kiFile.close();
+    }
+
+    // Hintergrund-Prozess für die KI initialisieren
     m_kiProzess = new QProcess(this);
 
-    connect(m_kiProzess, &QProcess::readyReadStandardOutput,
-            this, [this]() {
+    connect(m_kiProzess, &QProcess::readyReadStandardOutput, this, [this]() {
         QString ausgabe = m_kiProzess->readAllStandardOutput().trimmed();
         QStringList zeilen = ausgabe.split("\n");
-
         for (const QString &zeile : std::as_const(zeilen)) {
             if (zeile.startsWith("RESULT:")) {
-                ui->statusbar->showMessage("KI Live: " + zeile.mid(7).trimmed());
+                QString reinesErgebnis = zeile.mid(7).trimmed();
+                ui->statusbar->showMessage("KI Live: " + reinesErgebnis);
+            } else {
+                cout << "[PYTHON DEBUG]: " << zeile.toStdString() << endl;
             }
         }
     });
 
-    connect(m_kiProzess, &QProcess::readyReadStandardError,
-            this, [this]() {
+    connect(m_kiProzess, &QProcess::readyReadStandardError, this, [this]() {
         QString fehler = m_kiProzess->readAllStandardError().trimmed();
         cout << "[PYTHON KI FEHLER]: " << fehler.toStdString() << endl;
     });
-}
-// mainwindow::mainwindow
+} // MainWindow::MainWindow
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -497,224 +295,229 @@ MainWindow::MainWindow(QWidget *parent)
 
 MainWindow::~MainWindow()
 {
-    if (m_camera)
-        m_camera->stop();
-
-    delete ui;
-
-    // Python sauber beenden (muss zu Teil 1 passen)
-    if (Py_IsInitialized()) {
-        Py_Finalize();
+    cout << "PROGRAMM-ENDE: Schließe Anwendungen..." << endl;
+    if (m_kiProzess) {
+        m_kiProzess->terminate();
+        m_kiProzess->waitForFinished(3000);
     }
-}
+    if (m_camera) {
+        m_camera->stop();
+    }
+    delete ui;
+} // MainWindow::~MainWindow
 
 
 
-void MainWindow::on_quitButton_released()
-{
-    close();
-}
 
 
 
-//========================================
+//*************************
 // ***SNIP***
-//========================================
+//*************************
 
-//========================================
+//*************************
 // ***SNIP***
-//========================================
-
-
-
+//*************************
 
 void MainWindow::on_vidPause_clicked()
 {
+    cout << "SLOT: on_vidPause_clicked aufgerufen" << endl;
     if (m_camera) {
         m_camera->stop();
-        cout << "Live-Stream pausiert." << endl;
+        cout << "  -> Kamera angehalten." << endl;
     }
-}
-
-
-
-void MainWindow::on_vidRun_clicked()
-{
-    if (m_camera) {
-        m_camera->start();
-        cout << "Live-Stream läuft weiter." << endl;
-    }
-}
-
-
+} // MainWindow::on_vidPause_clicked
 
 void MainWindow::on_vidScrshot_clicked()
 {
-    // FALL 1: Live-Stream läuft aktiv
-    if (m_camera && m_camera->isActive() &&
-        m_imageCapture && m_imageCapture->isReadyForCapture())
-    {
+    cout << "SLOT: on_vidScrshot_clicked aufgerufen" << endl;
+    if (m_imageCapture) {
         m_imageCapture->capture();
-        cout << "Hardware-Screenshot vom Live-Stream angefordert." << endl;
-
-        QPixmap currentPixmap = ui->labelCameraLive->pixmap();
-        if (!currentPixmap.isNull()) {
-            QString fileName = m_datasetPath + "/screenshot_stream.png";
-            currentPixmap.save(fileName, "PNG");
-        }
+        cout << "  -> Bildaufnahme-Befehl an Hardware gesendet." << endl;
     }
-    // FALL 2: Standbild / Pausenmodus
-    else
-    {
-        QPixmap currentPixmap = ui->labelCameraLive->pixmap();
-        if (!currentPixmap.isNull()) {
-            m_currentImage = currentPixmap.toImage();
-            ui->labelScreenshot->setPixmap(currentPixmap);
+} // MainWindow::on_vidScrshot_clicked
 
-            QString fileName = m_datasetPath + "/screenshot_pause.png";
-            currentPixmap.save(fileName, "PNG");
-
-            QImage kiBild = prozessiereKiBild(m_currentImage);
-            ui->labelKiInput->setPixmap(QPixmap::fromImage(kiBild));
-        }
-        else {
-            cout << "Fehler: Kein Standbild im Kamera-Label vorhanden." << endl;
-        }
+void MainWindow::on_vidRun_clicked()
+{
+    cout << "SLOT: on_vidRun_clicked aufgerufen" << endl;
+    if (m_camera && !m_camera->isActive()) {
+        m_camera->start();
+        cout << "  -> Kamera gestartet." << endl;
     }
-}
+} // MainWindow::on_vidRun_clicked
+
+void MainWindow::on_quitButton_released()
+{
+    cout << "SLOT: on_quitButton_released aufgerufen -> Schließe App" << endl;
+    close();
+} // MainWindow::on_quitButton_released
 
 
 
+//*************************
+// ***SNIP***
+//*************************
 
-// =========================================================
-// OPTIMIERT: Speichert KI Bild mit ID-Maske
-// 422 neu: for (const QString &idStr : qAsConst(idList))
-// =========================================================
+//*************************
+// ***SNIP***
+//*************************
 
 void MainWindow::on_btnSaveKIpng_clicked()
 {
-    if (ui->labelScreenshot->pixmap().isNull()) {
-        QMessageBox::warning(this,
-                             "Fehler",
-                             "Kein Standbild im 2. Fenster vorhanden!");
+    cout << "SLOT: on_btnSaveKIpng_clicked aufgerufen" << endl;
+    if (m_currentImage.isNull()) {
+        cout << "  -> FEHLER: Kein Bild zum Speichern vorhanden!" << endl;
         return;
     }
 
+    QDir().mkpath("dataset");
+    QString fileName = QString("dataset/ki_input_%1.png").arg(QDateTime::currentDateTime().toString("yyyyMMdd_hhmmss"));
+
+    QImage scaledImg = m_currentImage.scaled(224, 224, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    QImage grayImg = scaledImg.convertToFormat(QImage::Format_Grayscale8);
+
+    if (grayImg.save(fileName, "PNG")) {
+        cout << "  -> KI-Bild erfolgreich gespeichert: " << fileName.toStdString() << endl;
+        ui->statusbar->showMessage("KI-Bild erfolgreich als PNG gespeichert.", 3000);
+    } else {
+        cout << "  -> FEHLER beim Speichern des PNG-Bildes!" << endl;
+    }
+} // MainWindow::on_btnSaveKIpng_clicked
+
+
+
+
+
+
+
+
+
+
+
+int MainWindow::getNumClasses() const
+{
+    cout << "FUNC: getNumClasses aufgerufen" << endl;
     if (m_klassenNamen.empty()) {
-        QMessageBox::critical(this,
-                              "Fehler",
-                              "Keine Muster-Klassen geladen!");
+        cout << "  -> Klassen-Map ist leer (0 Klassen)." << endl;
+        return 0;
+    }
+    int num = m_klassenNamen.rbegin()->first + 1;
+    cout << "  -> Ermittelte Anzahl der Klassen: " << num << endl;
+    return num;
+} // MainWindow::getNumClasses
+
+
+
+// Liest die labels.cfg Datei zeilenweise aus dem Quellcode-Verzeichnis ein
+void MainWindow::ladeLabelsKonfiguration()
+{
+    m_klassenNamen.clear();
+
+    // Ermittelt den Pfad, wo die EXE liegt, und sucht die labels.cfg im Projektordner darüber
+    QDir projDir(QCoreApplication::applicationDirPath());
+    projDir.cdUp(); // Aus debug/release raus in den Hauptordner
+
+    QString cfgPfad = projDir.absoluteFilePath("labels.cfg");
+    QFile file(cfgPfad);
+
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        std::cout << "[KRITISCH] Konfigurationsdatei 'labels.cfg' fehlt unter: "
+                  << cfgPfad.toStdString() << std::endl;
+        QMessageBox::critical(this, "Fehler", "Die Datei 'labels.cfg' wurde im Projektordner nicht gefunden!");
         return;
     }
 
-    QString spickzettel =
-        "<b>Verfügbare Muster-IDs:</b><br><br><table>";
+    QTextStream in(&file);
+    while (!in.atEnd()) {
+        QString zeile = in.readLine().trimmed();
 
-    int col = 0;
+        // Ignoriere Leerzeilen oder Kommentare (falls du mal welche einfügst)
+        if (zeile.isEmpty() || zeile.startsWith("#")) continue;
 
-    for (auto const& [id, name] : m_klassenNamen) {
-        if (col == 0) spickzettel += "<tr>";
+        // Splitte die Zeile am Doppelpunkt (z.B. "21:Karte Bube")
+        QStringList teile = zeile.split(":");
+        if (teile.size() >= 2) {
+            bool ok;
+            int id = teile[0].trimmed().toInt(&ok);
+            QString name = teile[1].trimmed();
 
-        spickzettel += QString("<td><b>%1:</b> %2</td>").arg(id).arg(name);
-        col++;
-
-        if (col >= 2) {
-            spickzettel += "</tr>";
-            col = 0;
+            if (ok) {
+                m_klassenNamen[id] = name;
+            }
         }
     }
+    file.close();
+    std::cout << "Konfiguration erfolgreich geladen! Registrierte Muster-Klassen: "
+              << m_klassenNamen.size() << " (Slots benötigt: " << getNumClasses() << ")" << std::endl;
+} // MainWindow::ladeLabelsKonfiguration
 
-    if (col != 0) spickzettel += "</tr>";
-    spickzettel += "</table><br>ID Eingabe:";
 
-    QDialog dialog(this);
-    dialog.setWindowTitle("Multi-Muster Klassifizierung");
 
-    QVBoxLayout *mainLayout = new QVBoxLayout(&dialog);
 
-    QLabel *textLabel = new QLabel(spickzettel, &dialog);
-    textLabel->setTextFormat(Qt::RichText);
-    mainLayout->addWidget(textLabel);
 
-    QLineEdit *customInput = new QLineEdit(&dialog);
-    customInput->setPlaceholderText("z.B. 1 5 14");
-    mainLayout->addWidget(customInput);
+//*************************
+// ***SNIP***
+//*************************
 
-    QHBoxLayout *buttonLayout = new QHBoxLayout();
 
-    QPushButton *okButton = new QPushButton("OK", &dialog);
-    QPushButton *cancelButton = new QPushButton("Abbrechen", &dialog);
+void MainWindow::on_btnKiRun_clicked()
+{
+    cout << "SLOT: on_btnKiRun_clicked aufgerufen" << endl;
+    ui->progressBar->setValue(0);
 
-    buttonLayout->addWidget(okButton);
-    buttonLayout->addWidget(cancelButton);
+    if (m_kiErkennungAktiv) return;
 
-    mainLayout->addLayout(buttonLayout);
+    if (m_kiProzess->state() != QProcess::Running) {
+        // ZWINGEND ERFORDERLICH: Setzt den Pfad eine Ebene über 'dataset',
+        // damit os.getcwd() in Python exakt im Hauptordner landet!
+        QDir projDir(m_datasetPath);
+        projDir.cdUp();
+        m_kiProzess->setWorkingDirectory(projDir.absolutePath());
 
-    connect(okButton, &QPushButton::clicked, &dialog, &QDialog::accept);
-    connect(cancelButton, &QPushButton::clicked, &dialog, &QDialog::reject);
+        cout << "  -> Setze KI-Arbeitsverzeichnis: " << projDir.absolutePath().toStdString() << endl;
 
-    if (dialog.exec() != QDialog::Accepted)
-        return;
+        QStringList args;
+        args << "-u" << "tmp/generated_inference.py";
+        m_kiProzess->start("python", args);
 
-    QStringList idList =
-        customInput->text().split(QRegularExpression("\\s+"),
-                                  Qt::SkipEmptyParts);
-
-    std::vector<int> validIds;
-    QString suffix;
-
-    for (const QString &idStr : qAsConst(idList)) {
-        bool ok;
-        int id = idStr.toInt(&ok);
-
-        if (!ok || m_klassenNamen.find(id) == m_klassenNamen.end()) {
-            QMessageBox::critical(this,
-                                  "Fehler",
-                                  "Ungültige ID: " + idStr);
+        if (!m_kiProzess->waitForStarted()) {
+            std::cout << "[ERROR] KI-Prozess konnte nicht gestartet werden!" << std::endl;
             return;
         }
-
-        validIds.push_back(id);
-        suffix += "_ID" + QString::number(id);
     }
 
-    if (validIds.empty())
-        return;
-
-    QImage raw = ui->labelScreenshot->pixmap().toImage();
-    QImage kiBild = prozessiereKiBild(raw);
-
-    QString ts = QDateTime::currentDateTime()
-                     .toString("yyyyMMdd_hhmmss_zzz");
-
-    QString defaultName =
-        QString("%1/ZZKI%2_%3.png")
-            .arg(m_datasetPath, suffix, ts);
-
-    QString file = QFileDialog::getSaveFileName(
-        this,
-        "Speichern",
-        defaultName,
-        "PNG (*.png)");
-
-    if (!file.isEmpty()) {
-        if (!file.contains("_ID")) {
-            QMessageBox::critical(this,
-                                  "Fehler",
-                                  "ID-Maske fehlt im Dateinamen!");
-            return;
-        }
-
-        kiBild.save(file, "PNG");
-    }
+    m_kiErkennungAktiv = true;
+    std::cout << "KI Live-Erkennung erfolgreich gestartet." << std::endl;
 }
+// MainWindow::on_btnKiRun_clicked
 
 
-// =========================================================
-// DATASET LOAD + CSV EXPORT
-// =========================================================
+
+
+
+
+void MainWindow::on_btnKiStop_clicked()
+{
+    cout << "SLOT: on_btnKiStop_clicked aufgerufen" << endl;
+    if (m_kiProzess && m_kiProzess->state() == QProcess::Running) {
+        m_kiProzess->terminate();
+        m_kiProzess->waitForFinished(2000);
+    }
+    m_kiErkennungAktiv = false;
+    cout << "  -> KI Live-Erkennung angehalten." << endl;
+    ui->statusbar->showMessage("KI-Inferenz angehalten.", 3000);
+} // MainWindow::on_btnKiStop_clicked
+
+
+
+
+
 void MainWindow::on_btnLoadDataset_clicked()
 {
+
+    ui->progressBar->setValue(0);
+
+
     m_trainingInputs.clear();
     m_trainingTargets.clear();
 
@@ -782,13 +585,14 @@ void MainWindow::on_btnLoadDataset_clicked()
                                    .arg(m_trainingInputs.size()).arg(maxSlots), 4000);
 
 }
-
+//  on_btnLoadDataset_clicked
 
 
 
 void MainWindow::on_btnExportCSV_clicked()
 {
-    printf("on_btnExportCSV_clicked\n");
+
+    ui->progressBar->setValue(0);
 
     int maxSlots = getNumClasses(); // Dynamische Anzahl ermitteln
     if (m_trainingInputs.empty() || m_trainingTargets.empty() || (m_trainingInputs.size() != m_trainingTargets.size())) {
@@ -843,229 +647,82 @@ void MainWindow::on_btnExportCSV_clicked()
                                    .arg(totalFiles), 5000);
 
 }
-
-
-
-
-// Gibt die dynamische Anzahl an Ausgängen zurück
-int MainWindow::getNumClasses() const
-{
-    printf("getNumClasses gestartet\n");
-    if (m_klassenNamen.empty()) return 0;
-    return m_klassenNamen.rbegin()->first + 1;
-}
-
-
-
-// Liest die labels.cfg Datei zeilenweise aus dem Quellcode-Verzeichnis ein
-void MainWindow::ladeLabelsKonfiguration()
-{
-    printf("ladeLabelsKonfiguration\n");
-    m_klassenNamen.clear();
-
-    // Ermittelt den Pfad, wo die EXE liegt, und sucht die labels.cfg im Projektordner darüber
-    QDir projDir(QCoreApplication::applicationDirPath());
-    projDir.cdUp(); // Aus debug/release raus in den Hauptordner
-
-    QString cfgPfad = projDir.absoluteFilePath("labels.cfg");
-    QFile file(cfgPfad);
-
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        std::cout << "[KRITISCH] Konfigurationsdatei 'labels.cfg' fehlt unter: "
-                  << cfgPfad.toStdString() << std::endl;
-        QMessageBox::critical(this, "Fehler", "Die Datei 'labels.cfg' wurde im Projektordner nicht gefunden!");
-        return;
-    }
-
-    QTextStream in(&file);
-    while (!in.atEnd()) {
-        QString zeile = in.readLine().trimmed();
-
-        // Ignoriere Leerzeilen oder Kommentare (falls du mal welche einfügst)
-        if (zeile.isEmpty() || zeile.startsWith("#")) continue;
-
-        // Splitte die Zeile am Doppelpunkt (z.B. "21:Karte Bube")
-        QStringList teile = zeile.split(":");
-        if (teile.size() >= 2) {
-            bool ok;
-            int id = teile[0].trimmed().toInt(&ok);
-            QString name = teile[1].trimmed();
-
-            if (ok) {
-                m_klassenNamen[id] = name;
-            }
-        }
-    }
-    file.close();
-    std::cout << "Konfiguration erfolgreich geladen! Registrierte Muster-Klassen: "
-              << m_klassenNamen.size() << " (Slots benötigt: " << getNumClasses() << ")" << std::endl;
-}
+//  on_btnExportCSV_clicked
 
 
 
 
 
-//========================================
-// ***SNIP***
-//========================================
-
-//========================================
-// ***SNIP***
-//========================================
-
-
-// ========================================
-// KI RUN (angepasst: kein initPython Mischbetrieb mehr)
-// ========================================
-void MainWindow::on_btnKiRun_clicked()
-{
-    printf("on_btnKiRun_clicked\n");
-
-    if (m_kiErkennungAktiv)
-        return;
-
-    if (!Py_IsInitialized()) {
-        QMessageBox::critical(
-            this,
-            "Fehler",
-            "Python Interpreter nicht aktiv!");
-        return;
-    }
-
-    m_kiErkennungAktiv = true;
-
-    ui->btnKiRun->setEnabled(false);
-    ui->btnKiStop->setEnabled(true);
-
-    ui->statusbar->showMessage(
-        "KI Live-Erkennung aktiv",
-        3000);
-
-    cout << "[PYTHON] Live Inferenz aktiviert"
-         << endl;
-}
-// on_btnKiRun_clicked
-
-
-
-// ========================================
-// KI STOP
-// ========================================
-void MainWindow::on_btnKiStop_clicked()
-{
-    ui->progressBar->setValue(0);
-
-    if (!m_kiErkennungAktiv)
-        return;
-
-    cout << "Stoppe KI..." << endl;
-
-    m_kiErkennungAktiv = false;
-
-    if (m_kiProzess) {
-        m_kiProzess->close();
-    }
-
-    ui->statusbar->showMessage("KI gestoppt", 3000);
-    ui->btnKiRun->setEnabled(true);
-    ui->btnKiStop->setEnabled(false);
-}
-// on_btnKIStop_clicked
-
-// ========================================
-// TRAINING (unverändert strukturell, nur robust gehalten)
-// neu 763:  for (const QString &p : qAsConst(moeglichePfade))
-// ========================================
 void MainWindow::on_btnKiTrain_clicked()
 {
-    cout << ">>> on_btnKiTrain_clicked()" << endl;
-
+    std::cout << "SLOT: on_btnKiTrain_clicked aufgerufen" << std::endl;
     ui->progressBar->setValue(0);
 
-    if (m_kiTrainingAktiv) {
-        QMessageBox::warning(this, "Training läuft bereits",
-                             "Bitte warten bis aktuelles Training fertig ist.");
+    if (m_trainingInputs.empty()) {
+        std::cout << "[ERROR] Trainings-Matrix ist leer! Bitte zuerst 'Export CSV' ausführen." << std::endl;
         return;
     }
 
-    if (m_kiErkennungAktiv) {
-        QMessageBox::warning(this, "Erkennung aktiv",
-                             "Bitte zuerst KI stoppen.");
-        return;
-    }
-
-    QDir baseDir(QCoreApplication::applicationDirPath());
-    QDir projDir = baseDir;
+    QDir projDir(QCoreApplication::applicationDirPath());
     projDir.cdUp();
+    QString scriptPfad = projDir.absoluteFilePath("train_tensorFlow_net.py");
 
-    QStringList moeglichePfade;
-    moeglichePfade << projDir.absoluteFilePath("train_tensorFlow_net.py");
-    moeglichePfade << projDir.absoluteFilePath("train_cnn.py");
-    moeglichePfade << baseDir.absoluteFilePath("train_tensorFlow_net.py");
-    moeglichePfade << baseDir.absoluteFilePath("train_cnn.py");
+    QProcess *trainProcess = new QProcess(this);
+    trainProcess->setWorkingDirectory(projDir.absolutePath());
 
-    QString skript;
+    connect(trainProcess, &QProcess::readyReadStandardOutput, this, [this, trainProcess]() {
+        QString out = trainProcess->readAllStandardOutput().trimmed();
+        std::cout << "[PYTHON TRAIN]: " << out.toStdString() << std::endl;
+    });
 
-    for (const QString &p : qAsConst(moeglichePfade))  {
-        if (QFile::exists(p)) {
-            skript = p;
-            break;
+    connect(trainProcess, &QProcess::readyReadStandardError, this, [trainProcess]() {
+        QString err = trainProcess->readAllStandardError().trimmed();
+        if (!err.isEmpty()) {
+            std::cout << "[PYTHON TRAIN ERR]: " << err.toStdString() << std::endl;
         }
-    }
-
-    if (skript.isEmpty()) {
-        QMessageBox::critical(this, "Fehler", "Kein Training-Skript gefunden!");
-        return;
-    }
-
-    m_kiTrainingAktiv = true;
-    ui->btnKiTrain->setEnabled(false);
-
-    ui->statusbar->showMessage("Training gestartet...", 5000);
-
-    cout << "Training gestartet: " << skript.toStdString() << endl;
-
-    QProcess *proc = new QProcess(this);
-
-    connect(proc, &QProcess::readyReadStandardOutput, this, [proc]() {
-        cout << proc->readAllStandardOutput().toStdString();
     });
 
-    connect(proc, &QProcess::readyReadStandardError, this, [proc]() {
-        cout << "[TRAIN] " << proc->readAllStandardError().toStdString();
-    });
-
-    connect(proc, &QProcess::finished, this,
-            [this, proc](int code, QProcess::ExitStatus)
-    {
-        m_kiTrainingAktiv = false;
-        ui->btnKiTrain->setEnabled(true);
-
-        if (code == 0) {
-            ui->statusbar->showMessage("Training fertig", 4000);
-        } else {
-            ui->statusbar->showMessage("Training Fehler", 4000);
-        }
-
-        proc->deleteLater();
-    });
-
-    QStringList args;
-    args << "-u" << skript;
-
-#ifdef Q_OS_WIN
-    proc->start("python", args);
-#else
-    proc->start("python3", args);
-#endif
-}
-// on_btnKiTrain_clicked
+    trainProcess->start("python", QStringList() << "-u" << scriptPfad);
+    std::cout << "Trainings-Skript wurde asynchron gestartet..." << std::endl;
+} // MainWindow::on_btnKiTrain_clicked
 
 
 
 
-//========================================
-// eof
-//========================================
+void MainWindow::on_timer_snapshot()
+{
+    // Snapshot-Intervall-Triggerslot aus dem Header
+} // MainWindow::on_timer_snapshot
+
+
+
+void MainWindow::readKiOutput()
+{
+    // Erledigt über den Lambda-Slot im Konstruktor
+} // MainWindow::readKiOutput
+
+void MainWindow::readKiError()
+{
+    // Erledigt über den Lambda-Slot im Konstruktor
+} // MainWindow::readKiError
+
+void MainWindow::readTrainOutput()
+{
+    // Slot zum Mitlesen eines Trainingsprozesses falls gekoppelt
+} // MainWindow::readTrainOutput
+
+QImage MainWindow::prozessiereKiBild(const QImage &quellBild)
+{
+    // Wandelt das übergebene Bild in das exakte KI-Eingangsformat (224x224, Graustufen) um
+    QImage scaledImg = quellBild.scaled(224, 224, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    QImage grayImg = scaledImg.convertToFormat(QImage::Format_Grayscale8);
+    return grayImg;
+} // MainWindow::prozessiereKiBild
+
+//*************************
+// EOF
+//*************************
+
+
 
 
