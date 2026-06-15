@@ -90,6 +90,247 @@ QImage prozessiereKiBild(const QImage &quellBild)
 }
 
 
+
+// =====================================================
+// Python Initialisierung
+// =====================================================
+bool MainWindow::initPython()
+{
+    if (m_pythonReady)
+        return true;
+
+    if (!Py_IsInitialized()) {
+        Py_Initialize();
+    }
+
+    if (!Py_IsInitialized()) {
+        cout << "[PYTHON] Initialisierung fehlgeschlagen." << endl;
+        return false;
+    }
+
+    m_pythonInit = true;
+    m_pythonReady = true;
+
+    cout << "[PYTHON] Interpreter aktiv" << endl;
+
+    return true;
+}
+// initPython
+
+
+
+// =====================================================
+// Python Shutdown
+// =====================================================
+void MainWindow::shutdownPython()
+{
+    m_pyInferFunc = nullptr;
+    m_pyModule = nullptr;
+
+    if (Py_IsInitialized()) {
+        Py_Finalize();
+    }
+
+    m_pythonReady = false;
+    m_pythonInit = false;
+
+    cout << "[PYTHON] Interpreter beendet" << endl;
+}
+// shutdownPython
+
+
+// =====================================================
+// Inferenz aus Float-Vektor
+// =====================================================
+void MainWindow::runPythonInference(const std::vector<float>& input)
+{
+    if (!Py_IsInitialized())
+        return;
+
+    if (input.size() != 224 * 224)
+        return;
+
+    PyObject *mainModule = PyImport_AddModule("__main__");
+    if (!mainModule)
+        return;
+
+    PyObject *globals = PyModule_GetDict(mainModule);
+
+    PyRun_SimpleString(
+        "import tensorflow as tf\n"
+        "import numpy as np\n"
+        "import os\n"
+        );
+
+    QDir projDir(QCoreApplication::applicationDirPath());
+    projDir.cdUp();
+
+    QString modelPath =
+        projDir.absoluteFilePath("dataset/model.tflite");
+
+    QString labelsPath =
+        projDir.absoluteFilePath("dataset/labels.txt");
+
+    QFile labelFile(labelsPath);
+
+    QStringList labels;
+
+    if (labelFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QTextStream in(&labelFile);
+
+        while (!in.atEnd()) {
+            QString line = in.readLine().trimmed();
+            if (!line.isEmpty())
+                labels << line;
+        }
+
+        labelFile.close();
+    }
+
+    PyObject *pyList = PyList_New(static_cast<Py_ssize_t>(input.size()));
+
+    for (size_t i = 0; i < input.size(); ++i) {
+        PyList_SetItem(
+            pyList,
+            static_cast<Py_ssize_t>(i),
+            PyFloat_FromDouble(input[i]));
+    }
+
+    PyDict_SetItemString(globals, "cpp_input", pyList);
+
+    QString cmd = QString(R"(
+import tensorflow as tf
+import numpy as np
+
+interpreter = tf.lite.Interpreter(
+    model_path=r"%1"
+)
+
+interpreter.allocate_tensors()
+
+input_details = interpreter.get_input_details()
+output_details = interpreter.get_output_details()
+
+arr = np.array(cpp_input,dtype=np.float32)
+arr = arr.reshape((1,224,224,1))
+
+interpreter.set_tensor(
+    input_details[0]['index'],
+    arr
+)
+
+interpreter.invoke()
+
+cpp_result = interpreter.get_tensor(
+    output_details[0]['index']
+)[0]
+)")
+                      .arg(modelPath);
+
+    PyRun_String(
+        cmd.toUtf8().constData(),
+        Py_file_input,
+        globals,
+        globals);
+
+    PyObject *result =
+        PyDict_GetItemString(globals, "cpp_result");
+
+    if (!result)
+        return;
+
+    PyObject *seq = PySequence_Fast(
+        result,
+        "output");
+
+    if (!seq)
+        return;
+
+    QString ausgabe;
+
+    Py_ssize_t count =
+        PySequence_Fast_GET_SIZE(seq);
+
+    for (Py_ssize_t i = 0; i < count; ++i) {
+
+        PyObject *item =
+            PySequence_Fast_GET_ITEM(seq, i);
+
+        double prob =
+            PyFloat_AsDouble(item);
+
+        if (prob > 0.5) {
+
+            QString label =
+                (i < labels.size())
+                    ? labels[(int)i]
+                    : QString("ID_%1").arg((int)i);
+
+            ausgabe +=
+                QString("%1 (%2%) ")
+                    .arg(label)
+                    .arg(prob * 100.0,0,'f',1);
+        }
+    }
+
+    if (ausgabe.isEmpty())
+        ausgabe = "Nichts erkannt";
+
+    ui->statusbar->showMessage(
+        "KI Live: " + ausgabe);
+
+    Py_DECREF(pyList);
+}
+// runPythonInference
+
+
+void MainWindow::runPythonInferenceFromImage(const QImage &img)
+{
+    if (!m_kiErkennungAktiv)
+        return;
+
+    if (!Py_IsInitialized())
+        return;
+
+    if (img.isNull())
+        return;
+
+    // Bild auf KI-Format bringen
+    QImage kiBild = prozessiereKiBild(img);
+
+    if (kiBild.isNull())
+        return;
+
+    // 224x224 Graustufen -> Float Array 0..1
+    std::vector<float> input;
+    input.reserve(224 * 224);
+
+    for (int y = 0; y < 224; ++y) {
+        const uchar *row = kiBild.constScanLine(y);
+
+        for (int x = 0; x < 224; ++x) {
+            input.push_back(
+                static_cast<float>(row[x]) / 255.0f
+                );
+        }
+    }
+
+    runPythonInference(input);
+}
+// runPythonInferenceFromImage
+
+
+
+//========================================
+// ***SNIP***
+//========================================
+
+//========================================
+// ***SNIP***
+//========================================
+
+
+
 // =========================================================
 // MAINWINDOW
 // =========================================================
@@ -200,6 +441,7 @@ MainWindow::MainWindow(QWidget *parent)
         }
     });
 
+
     // =====================================================
     // Screenshot Handling
     // =====================================================
@@ -247,17 +489,9 @@ MainWindow::MainWindow(QWidget *parent)
         cout << "[PYTHON KI FEHLER]: " << fehler.toStdString() << endl;
     });
 }
-// mainwindow:mainwindow
+// mainwindow::mainwindow
 
 
-
-//========================================
-// ***SNIP***
-//========================================
-
-//========================================
-// ***SNIP***
-//========================================
 
 
 
@@ -280,6 +514,16 @@ void MainWindow::on_quitButton_released()
 {
     close();
 }
+
+
+
+//========================================
+// ***SNIP***
+//========================================
+
+//========================================
+// ***SNIP***
+//========================================
 
 
 
@@ -677,29 +921,32 @@ void MainWindow::on_btnKiRun_clicked()
 {
     printf("on_btnKiRun_clicked\n");
 
-    ui->progressBar->setValue(0);
-
     if (m_kiErkennungAktiv)
         return;
 
-    // WICHTIG: Python wurde bereits im Konstruktor initialisiert
     if (!Py_IsInitialized()) {
-        QMessageBox::critical(this, "Fehler", "Python Interpreter nicht aktiv!");
+        QMessageBox::critical(
+            this,
+            "Fehler",
+            "Python Interpreter nicht aktiv!");
         return;
-    }
-
-    // optional: Inference-Funktion vorbereiten (falls genutzt)
-    if (!m_pyInferFunc) {
-        cout << "[PYTHON] Hinweis: Inference Funktion noch nicht gebunden." << endl;
     }
 
     m_kiErkennungAktiv = true;
 
-    ui->statusbar->showMessage("KI läuft (Python Embedded)", 3000);
     ui->btnKiRun->setEnabled(false);
     ui->btnKiStop->setEnabled(true);
+
+    ui->statusbar->showMessage(
+        "KI Live-Erkennung aktiv",
+        3000);
+
+    cout << "[PYTHON] Live Inferenz aktiviert"
+         << endl;
 }
 // on_btnKiRun_clicked
+
+
 
 // ========================================
 // KI STOP
