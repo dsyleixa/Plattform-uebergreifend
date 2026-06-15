@@ -268,13 +268,19 @@ MainWindow::~MainWindow()
 
     delete ui;
 
-    // =====================================================
     // Python sauber beenden (muss zu Teil 1 passen)
-    // =====================================================
     if (Py_IsInitialized()) {
         Py_Finalize();
     }
 }
+
+
+
+void MainWindow::on_quitButton_released()
+{
+    close();
+}
+
 
 
 
@@ -295,14 +301,6 @@ void MainWindow::on_vidRun_clicked()
         cout << "Live-Stream läuft weiter." << endl;
     }
 }
-
-
-
-void MainWindow::on_quitButton_released()
-{
-    close();
-}
-
 
 
 
@@ -346,7 +344,9 @@ void MainWindow::on_vidScrshot_clicked()
 
 // =========================================================
 // OPTIMIERT: Speichert KI Bild mit ID-Maske
+// 422 neu: for (const QString &idStr : qAsConst(idList))
 // =========================================================
+
 void MainWindow::on_btnSaveKIpng_clicked()
 {
     if (ui->labelScreenshot->pixmap().isNull()) {
@@ -419,7 +419,7 @@ void MainWindow::on_btnSaveKIpng_clicked()
     std::vector<int> validIds;
     QString suffix;
 
-    for (const QString &idStr : idList) {
+    for (const QString &idStr : qAsConst(idList)) {
         bool ok;
         int id = idStr.toInt(&ok);
 
@@ -670,9 +670,6 @@ void MainWindow::ladeLabelsKonfiguration()
 //========================================
 
 
-
-
-
 // ========================================
 // KI RUN (angepasst: kein initPython Mischbetrieb mehr)
 // ========================================
@@ -730,6 +727,7 @@ void MainWindow::on_btnKiStop_clicked()
 
 // ========================================
 // TRAINING (unverändert strukturell, nur robust gehalten)
+// neu 763:  for (const QString &p : qAsConst(moeglichePfade))
 // ========================================
 void MainWindow::on_btnKiTrain_clicked()
 {
@@ -761,7 +759,7 @@ void MainWindow::on_btnKiTrain_clicked()
 
     QString skript;
 
-    for (const QString &p : moeglichePfade) {
+    for (const QString &p : qAsConst(moeglichePfade))  {
         if (QFile::exists(p)) {
             skript = p;
             break;
@@ -814,6 +812,10 @@ void MainWindow::on_btnKiTrain_clicked()
     proc->start("python3", args);
 #endif
 }
+// on_btnKiTrain_clicked
+
+
+
 
 //========================================
 // eof
