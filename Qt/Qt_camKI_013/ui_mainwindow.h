@@ -6,7 +6,7 @@
 ** WARNING! All changes made in this file will be lost when recompiling UI file!
 ********************************************************************************/
 
-// # (c)  csyleixa 2026
+// # (c)  dsyleixa 2026
 
 
 #ifndef UI_MAINWINDOW_H
