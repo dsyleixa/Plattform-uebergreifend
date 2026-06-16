@@ -1,4 +1,4 @@
-# (c)  csyleixa 2026
+# (c)  dsyleixa 2026
 
 QT += widgets multimedia multimediawidgets
 
