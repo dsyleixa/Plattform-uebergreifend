@@ -1,3 +1,5 @@
+# (c)  csyleixa 2026
+
 QT += widgets multimedia multimediawidgets
 
 CONFIG += c++17 console
