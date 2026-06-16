@@ -1,0 +1,2 @@
+Qt_camKI_013:
+KI auf CNN Bsis, zur Mustererkennung in Bildern aus Video-Screen (RGB)
