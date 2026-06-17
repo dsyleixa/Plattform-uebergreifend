@@ -1,4 +1,5 @@
 // Projekt: Qt_Cam_TFlow_rpi 
+# (c) dsyleixa 2026
 
 
 #include "mainwindow.h"
