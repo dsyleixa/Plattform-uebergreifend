@@ -7,6 +7,7 @@
 
 
 // changelog
+// 014 neue zusätzlich Pfade für .exe
 // 013 Farbkanäle RGB
 // 012 ok mit run_inference code intern, train_tensorFlow_net.py ext
 // 009 ok scripts: train_tensorFlow_net.py + run_inference.py
