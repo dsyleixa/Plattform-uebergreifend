@@ -1,4 +1,5 @@
 # Project Qt_Cam_Tflow_rpi
+# (c) dsyleixa 2026
 
 
 # Project Qt_Cam_Tflow_rpi
