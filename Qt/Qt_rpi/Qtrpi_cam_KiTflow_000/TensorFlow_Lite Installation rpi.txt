@@ -1,0 +1,25 @@
+# .sh
+# install_TensorFlowLite.sh
+
+sudo apt-get update && sudo apt-get upgrade -y
+sudo apt-get install -y cmake curl git Build-essential
+
+git clone --depth 1 https://github.com/tensorflow/tensorflow.git tensorflow_src
+cd tensorflow_src
+
+./tensorflow/lite/tools/make/download_dependencies.sh
+
+mkdir tflite_build && cd tflite_build
+
+# CMake für ein Release-Build auf ARM64 konfigurieren
+cmake -DCMAKE_BUILD_TYPE=Release ../tensorflow/lite
+
+# Kompilieren (nutzt alle 4 Kerne des Pi, dauert ca. 15–20 Minuten)
+make -j4
+
+# Nachdem der Compiler durchgelaufen ist, 
+# finden Sie im Ordner die fertige Datei libtensorflow-lite.a
+
+
+
+
