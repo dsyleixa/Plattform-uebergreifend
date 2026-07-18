@@ -883,11 +883,6 @@ Das Programm nutzt eine hochoptimierte, hybride Gatter-Emulation. Es liefert die
 (die Schwingungs-Peaks des Shor-Algorithmus) und macht die Funktionsweise echter Quantengatter direkt auf der X-Achse
 deres Diagramms sichtbar.
 
-Fazit:
-Durch den radikalen Umbau auf reines C++ (ohne Eigen-Bibliothek), den Einbau der echten Quanten-Gatter (Hadamard & Controlled-Phase)
-und der mathematisch exakten Shor-Oberschwingungs-Analyse ist der Simulator nun ein wissenschaftlich präzises Messwerkzeug.
-Die Simulation verhält sich jetzt in jedem einzelnen Pixel der X-Achse und in jeder Protokollzeile exakt so wie ein echter
-physikalischer Quanten-Chip.
 
 */
 
