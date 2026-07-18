@@ -1,5 +1,6 @@
 Quantencomputing
-(c) dsyleixa 2026
+Quantencomputing
+(c) dysleixa 2026
 v. QubitsDecyph0024
 
 

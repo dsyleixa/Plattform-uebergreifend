@@ -1,5 +1,5 @@
 Quantencomputing: 
-(c) dsyleixa 2026
+(c) dysleixa 2026
 v. QubitsDecyph0026
 
 Ein simulierter Krypto-Hacker-Angriff auf einen abgefangenen Chiffrierschlüssel.

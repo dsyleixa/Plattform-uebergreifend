@@ -1,5 +1,5 @@
 Quantencomputing
-(c) dsyleixa 2026
+(c) dsyleixa 2020
 v. QubitsDecyph0023
 
 Ein simulierter Krypto-Hacker-Angriff auf einen dem System abgefangenen Chiffrierschlüssel.
