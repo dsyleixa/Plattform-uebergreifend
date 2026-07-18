@@ -1,0 +1,76 @@
+Quantencomputing: 
+(c) dsyleixa 2026
+v. QubitsDecyph0027: 
+wie Vorversion mit 20 Qubits, aber PC_RAM nun größtmöglich ausgeschöpft für max. 14-bit Verschlüsselungs-Keys (26 Qubits, alle code-limits entspr. erweitert)
+
+Ein simulierter Quantencomputing-Krypto-Hacker-Angriff auf einen abgefangenen Chiffrierschlüssel.
+Das Programm läuft in zwei getrennten Welten ab: der physikalischen Welt (das
+Diagramm) und der klassischen Kryptoanalyse-Welt (das Textfeld).
+
+Prinzip: Verschlüsseln und Entschlüsseln per RSA-Algorithmus (Beispiel N=187)
+1. RSA nutzt Einwegfunktionen: Das Verschlüsseln mit dem öffentlichen e=3 ist trivial.
+   Das Entschlüsseln erfordert das Brechen der Falltürfunktion durch Faktorisierung von N.
+2. Mathematischer Ablauf: Der Klartext (z. B. 'S' = ASCII 83) wird über (83^3) mod 187 = 128
+   chiffriert. Da das Verfahren keine Involution ist, liefert die erneute Anwendung
+   von e=3 nur Datenmüll (134).
+3. Der Schlüssel d (107): Sobald die Primfaktoren p=11 und q=17 bekannt sind, wird die
+   Euler-Stufe Φ(187) = 10 * 16 = 160 bestimmt. Das modulare Inverse d=107 löst die
+   Bedingung 3 * d = 1 (mod 160) und öffnet über 128^107 mod 187 = 83 den Rückweg.
+
+Aufgabe der Quanten-Fourier-Transformation (QFT) und Grafik
+1. Diagramm der Wellenfunktion: Das Programm simuliert einen Qubit-Rechenkern im RAM.
+   Die Gatter-QFT (applyQFTGatter) erzeugt durch konstruktive Interferenz scharfe
+   Resonanzpeaks, welche die Periodizität des Schlüssels offenlegen.
+2. Frequenz-Skalierung: Da der physikalische Gleichanteil bei Zustand 0 keine
+   kryptoanalytische Information liefert, blendet das Diagramm diesen aus und zoomt
+   die Y-Achse hautnah an die Schwingung der echten Neben-Peaks heran (roter Kreis).
+3. Text-Rekonstruktion: Aus der Peak-Frequenz berechnet die Kettenbruchmethode samt
+   Oberschwingungs-Analyse die Periode r und mittels euklidischem ggT (GCD) die Faktoren.
+4. Krypto-Audit: Mathematisch defekte Schlüssel (z. B. gcd(e, Φ) != 1) blockieren das
+   Standardverfahren. Die App schlägt Alarm und startet eine modulare Kollisions-Analyse
+   im ASCII-Raum, um die reale Datenbeschädigung defekter Schlüssel visuell zu demonstrieren.
+
+Echtes Quantencomputing im Code (Gatter-Simulation im RAM)
+• Quanten-Zustandsraum: Der Vektor `psi_qubits` hält 2^num_qubits komplexe Amplituden.
+  Bei 20 Qubits entspricht dies der Superposition von 1.048.576 Zuständen gleichzeitig.
+• Quantengatter: Die mathematischen Transformationen `applyHadamard` und `applyQFTGatter`
+  (mit Controlled-Phase-Gattern) bilden die physischen Operationen eines Quantenchips
+  mikroskopisch exakt nach.
+• Interferenz: Das Auslöschen unpassender Frequenzen auf Null (destruktive Interferenz)
+  und das ungeschönte Aufsteilen der Frequenz-Peaks (konstruktive Interferenz) bilden
+  das fundamentale Rechenprinzip des Shor-Algorithmus ab.
+
+Klassisches Computing & Verbindung zur Gatter-Welt
+• Reine CPU-Arbeit: Der Passphrasen-Wandler sowie die finale Textentschlüsselung mittels
+  d-Exponent laufen auf klassischer Ebene ab.
+• Das Bindeglied in Version 0026: Ein echter Quantencomputer realisiert die modulare
+  Arithmetik (basis^x mod N) über Quanten-Parallelismus. Das Projekt 0026 vollzieht hier
+  den Umbau auf die hardwarenahe Ebene: Die physikalische Kopplung der Qubits im RAM erfolgt
+  nun echt gatterbasiert über eine paarweise angewendete 8x8 Toffoli-Matrix (applyToffoli_PairwiseMatrix).
+• Toffoli-Gatter (CCNOT): Als dreifach kontrolliertes NOT-Gatter mit zwei Steuer- und
+  einer Zielleitung ist es vollkommen reversibel (unitär). Es bildet die Brücke zur
+  verlustfreien klassischen Logik im Quantenraum und ist das fundamentale Fundament,
+  um den klassischen Restwert-Code sukzessive durch reine Quanten-Arithmetik abzulösen.
+• Toffoli-Gatter-Addierwerk: REINE QUANTEN-ARITHMETIK VS. HYBRIDE KOPPLUNG (#define SCHALTER MIT TIMING)
+
+3 krypto-analytische Ankerpunkte:
+- Die Bit-Masken (& und |): Überall dort, wo man i & c1_mask oder i | t_mask sieht, findet die physikalische Adressierung 
+  der Qubits statt. Es wird bestimmt, welche virtuellen Datenleitungen im RAM gerade miteinander verschränkt werden.
+- Die Amplituden-Pufferung (v000 = psi[...]): Diese temporären Variablen sind die quantenmechanischen Register-Zwischenspeicher. 
+  Sie garantieren, dass die Werte während der paarweisen Transformation nicht überschrieben werden, was die Unitärität 
+  (Umkehrbarkeit) der Gatter sichert.
+- Der TOFFOLI_TURBO-Zweig: Er zeigt Ihnen schwarz auf weiß die mathematisch gekürzte Form der Quantenmechanik. 
+  Er ist der direkte Beweis dafür, wie man abstrakte Linare Algebra in hocheffizienten, modernen C++-Code übersetzt.
+
+Anhang:
+10 mathematisch sauberste keys, bei denen sowohl e=3 als auch Basis 5 reibungslos funktionieren:
+187 (11 × 17)   319 (11 × 29)   391 (17 × 23)   451 (11 × 41)   583 (11 × 53)
+667 (23 × 29)   799 (17 × 47)   913 (11 × 83)   943 (23 × 41)   979 (11 × 89)
+max. 14-bit Schlüssel:
+8383 (53 × 157) 8989 (89 × 101)
+
+Hardware-Auflösung (Version 0027): num_qubits=26 initialisiert 67.108.864 komplexe Zustände im RAM
+(Speicherbedarf: exakt 1,0 Gigabyte).
+Effektive Reichweite: Garantiert eine fehlerfreie kryptoanalytische Faktorisierung von RSA-Schlüsseln
+bis in den 14-Bit-Bereich (Moduli bis knapp über 9.000) unter Verwendung von Basis 5 und Exponent e=3.
+
