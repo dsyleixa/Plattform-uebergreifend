@@ -1,0 +1,178 @@
+Quantencomputing
+(c) dysleixa 2026
+v. QubitsDecyph0025
+
+
+Ein simulierter Krypto-Hacker-Angriff auf einen vom System abgefangenen Chiffrierschlüssel.
+Beim Klick auf den Decypher-Button läuft das Programm in zwei getrennten Welten ab:
+der physikalischen Welt (das Diagramm) und der Code-Knacker-Welt (das Textfeld).
+
+Prinzip: Verschlüsseln und Entschlüsseln per RSA-Algorithmus
+
+1. RSA nutzt Einwegfunktionen (Asymmetrie)
+RSA ist kein symmetrisches Hin-und-Her-Verfahren. Es basiert auf dem Prinzip einer mathematischen Einbahnstraße (Falltürfunktion).
+• Das Verschlüsseln ist mathematisch extrem einfach und für jeden machbar, der die öffentlich bekannte Zahl N (z. B. 187) kennt.
+• Das Entschlüsseln erfordert jedoch eine "Hintertür". Diese Hintertür existiert nicht in der 187 selbst,
+  sondern im Wissen darüber, aus welchen beiden Primzahlen die 187 zusammengesetzt wurde (11 * 17).
+
+2. Die mathematische Formel hinter dem Programm
+Damit man sieht, warum die 187 allein den Text nicht zurückholt, schauen wir uns die echte RSA-Rechnung an.
+RSA nutzt die sogenannte Modulo-Potenzierung (Rechnen mit Resten).
+Das Programm nutzt den festen Verschlüsselungswert e = 3 und den Modulus N = 187.
+
+3. Das Verschlüsseln (Beispiel)
+Nehmen wir den Buchstaben „S“ aus dem Text. Im ASCII-Code ist das die Zahl 83.
+Die Formel zum Verschlüsseln lautet: (Klartext^e) mod N
+Klartext = 83 => (83^3) = 571.787
+Jetzt teilen wir das durch 187 und schauen nur auf den Rest:
+571.787 / 187 = 3057 Rest 128
+Die 128 wäre dann die erste kodierte Zahl, die in der Chiffre auftaucht.
+
+4. Warum die erneute Anwendung fehlschlägt
+Wenn man nun versuchen würde, die 128 noch einmal auf dieselbe Weise mit der 187 zu codieren:
+128^3 = 2.097.152
+2.097.152 / 187 = 11.214 Rest 134
+Wie man sieht, kommt 134 heraus – und nicht das ursprüngliche „S“ (83). Das Verfahren ist keine Involution.
+
+5. Der notwendige Entschlüsselungs-Exponent d ("107")
+Die Zahl d = 107 wird über ein festes mathematisches Rezept (den Erweiterten Euklidischen Algorithmus) berechnet,
+sobald man die Primfaktoren p=11 und q=17 kennt.
+Zuerst berechnet man die Euler-Stufe (Eulersche Phi-Funktion Φ(N)):
+Man nimmt die beiden Primzahlen, zieht jeweils 1 ab und multipliziert sie:
+Φ(187) = (11 - 1) x (17 - 1) = 10 x 16 = 160
+
+Daraus sucht man die Zahl d, die multipliziert mit e=3 geteilt durch 160 den Rest 1 ergibt:
+3 x d = 1 (mod 160) -> Gelöst durch d = 107 (denn 3 * 107 = 321, und 321 / 160 = 2 Rest 1).
+
+6. Wie die 107 den Text rettet
+Um von der 128 (kodiert) wieder zur 83 (unkodiert) zu kommen, benötigt man zwingend diesen Schlüssel d = 107:
+128^107 (mod 187) = 83 (wieder das "S")
+
+Fazit:
+Ein Quantencomputer knackt dieses System nicht, indem er die Nachricht manipuliert. Er knackt es, indem er
+aus der öffentlich bekannten 187 die geheimen Zahlen 11 und 17 herausfiltert.
+Erst daraus konstruiert der klassische Teil des Algorithmus die magische Zahl 107, die als einzige den mathematischen Rückweg öffnet.
+
+
+Aufgabe der Quanten-Fourier-Transformation (QFT)
+
+1. Das Diagramm der Wellenfunktion (Die Physik)
+Das Programm arbeitet im RAM mit einem simulierten Qubit-Rechenkern (z. B. 20 Qubits). Jede beliebige Eingabe
+(Zahlen, Buchstaben oder Sonderzeichen) wird über einen stabilen Wandler in einen effektiven Modulus N abgeleitet.
+Die Quanten-Fourier-Transformation (applyQFTGatter) lässt die über eine Million Wellen im RAM überlagern.
+Durch konstruktive Interferenz entstehen an den Resonanzstellen messerscharfe Spitzen (Peaks), die die
+versteckte Frequenz des Schlüssels verraten.
+
+2. Die Frequenz-Skalierung (Der Zustand-0-Schutz)
+Der physikalische Gleichanteil bei Zustand 0 besitzt mathematisch die höchste Energie,
+liefert jedoch keine kryptoanalytische Information.
+Das Diagramm blendet den Zustand 0 daher komplett aus und zoomt die Y-Achse hautnah an die Schwingung
+der echten Neben-Peaks (2nd Best) heran. Ein leuchtend roter Punkt markiert exakt den genutzten Peak,
+aus dem das System die Primfaktoren berechnet.
+
+3. Die Text-Rekonstruktion (Die Kryptoanalyse)
+Aus der Frequenz des markierten Peaks berechnet der Algorithmus über die Kettenbruchmethode und Shors mathematisch exakte
+Oberschwingungs-Analyse die Periode r und daraus mittels euklidischem ggT (GCD) die Faktoren.
+Erfüllt das abgeleitete N die Bedingungen für ein echtes RSA-Produkt aus zwei ungleichen Primzahlen und ist groß genug
+(N >= 128), erfolgt die mathematisch fehlerfreie Rückrechnung.
+
+4. Das Krypto-Audit (Die Kollisions-Analyse)
+Ist das Design des Schlüssels mathematisch defekt – wie bei "ZZ1" (N = 554, d = 0) oder "ZZTop" (N = 428, kein echtes Primzahlprodukt) –,
+blockiert der Standard-RSA-Weg. Das System schlägt sofort unübersehbar Alarm:
+Die Statusleiste färbt sich signalrot mit weißer Fettschrift, und die Konsole druckt einen hellroten Warnblock aus.
+Gleichzeitig startet der Hacker eine unerbittliche modulare Kollisions-Analyse direkt im RAM gegen den ASCII-Bereich.
+Da defekte Schlüssel Informationen beim Verschlüsseln irreversibel löschen, weichen einzelne Zeichen ab (z.B. "SeinSoderSnicht...").
+Dies demonstriert visuell die reale Datenbeschädigung suboptimaler Krypto-Schlüssel.
+
+
+Das ist hier im Code echtes Quantencomputing (Quantenphysik):
+
+Die mathematische Struktur und die daraus entstehenden Zacken im Diagramm bilden reale Quantenphysik ab.
+Im Programm wird dies durch den Vektor `std::vector<std::complex<double>> psi_qubits` und die Gatter-Funktionen berechnet:
+
+• Der Quanten-Zustandsraum: Es wird ein Vektor mit exakt 2^num_qubits komplexen Zahlen im RAM aufgebaut.
+  In einem echten Quantencomputer entspricht das der Gleichzeitigkeit (Superposition) von z.B. 20 physischen Qubits (1.048.576 Zustände).
+• Die Quantengatter: Die Funktionen `applyHadamard` (Superposition) und `applyQFTGatter` (die Schleifen mit den Drehungen
+  der komplexen Phasenwinkel via Controlled-Phase) simulieren exakt die physischen Quantengatter, die auf einem echten
+  Quanten-Chip ablaufen würden.
+• Die Interferenz: Dass im Diagramm fast alle unpassenden Frequenzen auf Null kollabieren (destruktive Interferenz)
+  und nur die Schwingungs-Peaks des Schlüssels steil nach oben schießen (konstruktive Interferenz), ist das fundamentale
+  Rechenprinzip des Shor-Algorithmus.
+
+
+Dies ist klassisches Computing (Die Kryptoanalyse):
+
+Sobald der rote Punkt im Diagramm ermittelt wurde, verlässt das Programm die Quantenwelt. Alles andere ist nun klassische Mathematik auf der CPU.
+• Der Passphrasen-Wandler: Das Berechnen des Modulus N aus Wörtern über den Hash-Wert ist klassische Softwaretechnik.
+• Die Text-Rettung: Ein Quantencomputer liefert dem Angreifer „nur“ die mathematische Periode,
+  aus der die Primfaktoren p und q berechnet werden. Den Rest (Phi, d-Exponent und Textentschlüsselung) erledigt wieder ein normaler PC.
+
+Wo ist die Verbindung zum Quantencomputing?
+Die Formel `modVerschluesselung` selbst läuft auf der normalen CPU.
+Ein echter Quantencomputer nutzt diese Formel jedoch direkt im Zusammenspiel mit den Qubits:
+Er baut diese modulare Multiplikation mithilfe von Quantengattern (wie Toffoli-Gattern) als Überlagerung im Vektorraum nach.
+Er berechnet die Funktion für alle über eine Million Zustände gleichzeitig (Quanten-Parallelismus).
+Erst dadurch wird die Schwingung erzeugt, die nach der QFT als blaue Spitzen im Diagramm sichtbar wird.
+
+Die Formel modVerschluesselung selbst läuft auf der normalen CPU.
+Ein echter Quantencomputer nutzt diese Formel jedoch im Zusammenspiel mit den Qubits:
+Er baut diese modulare Multiplikation mithilfe von Quantengattern (wie Toffoli-Gattern)
+als Überlagerung im RAM nach.
+Er berechnet die Funktion modVerschluesselung für alle über eine Million Zustände in psi_qubits
+gleichzeitig (Quanten-Parallelismus).
+Erst dadurch wird die Schwingung erzeugt, die nach der QFT als blaue Spitzen im Diagramm sichtbar wird.
+
+Vergleich Quantenalgorithmen vs. PC-Simulation:
+
+1. Nutzt das Programm das Toffoli-Gatter?
+Nein, das Toffoli-Gatter wird aktuell eingespart. Wenn man  den Quellcode der mainwindow.cpp untersucht,
+wird man feststellen, dass in Schritt 3 Berechnungen wie die modulare Potenzierung auf ganz normalen CPU-Variablen
+ausgeführt werden.
+Um den Rechen-Flaschenhals zu umgehen, nutzt die Simulation hier eine verhaltensbasierte Abkürzung.
+ABER: Das Programm nutzt nun für die Superposition (applyHadamard) und für die Frequenzanalyse (applyQFTGatter)
+echte, simulierte Quantengatter!
+Es bildet die interne Gatter-Struktur eines Quantencomputers an den entscheidenden Stellen mikroskopisch
+exakt nach, anstatt nur eine mathematische FFT-Formel über die Daten zu legen.
+
+________________________________________
+
+2. Was ist ein Toffoli-Gatter und wie arbeitet es auf einem Quantencomputer?
+Das Toffoli-Gatter (auch bekannt als CCNOT-Gatter oder Controlled-Controlled-NOT) ist das fundamentale Bindeglied
+zwischen klassischer Logik und Quantenlogik:
+• Die Funktionsweise: Es besitzt 3 Qubits (zwei Kontroll-Qubits und ein Ziel-Qubit). Das Ziel-Qubit wird genau dann
+  umgedreht (von |0> auf |1> oder umgekehrt), wenn beide Kontroll-Qubits im Zustand |1> sind.
+• Warum es unverzichtbar ist: In der Quantenmechanik müssen alle physikalischen Operationen reversibel (umkehrbar)
+  sein – es darf keine Information verloren gehen (Unität). Ein normales klassisches AND (Und-Gatter) wirft Information weg:
+  Wenn das Ergebnis 0 ist, wissen Sie nicht, ob die Eingabe 0,0, 0,1 oder 1,0 war. Das Toffoli-Gatter löst dieses Problem:
+  Es ist vollkommen umkehrbar und erlaubt es gleichzeitig, jede beliebige klassische Logik (wie Addition oder eben
+  die modVerschluesselung) verlustfrei in einem Quanten-Schaltkreis nachzubauen.
+• Der Quanten-Parallelismus: Ein echter Quantencomputer schickt nicht eine Zahl nach der anderen durch das Toffoli-Gatter.
+  Da sich die Eingangs-Qubits durch Hadamard-Gatter in einer Superposition (Überlagerung) aller möglichen Zustände befinden,
+  wendet das Gatter die Logik auf alle Millionen Zustände gleichzeitig an.
+
+________________________________________
+
+3. Wie funktioniert es auf dem Windows-PC?
+Da ein Windows-Prozessor (CPU) auf klassischer Halbleiter-Physik basiert, kennt er keine echte physikalische Superposition.
+Wenn ein PC ein Quantenregister simulieren möchte, nutzt dieses Programm einen hocheffizienten, hybriden Ansatz:
+
+• Die Gatter-Struktur (Superposition & QFT):
+  In Schritt 2 und Schritt 4 arbeitet der PC strukturell wie ein echter Quantencomputer. Die `applyHadamard`-Schleife
+  simuliert exakt die physikalische Wellenmechanik. Jedes Qubit wird einzeln transformiert, wodurch im RAM über echte
+  Interferenz (Auslöschung und Verstärkung) die Gleichverteilung entsteht. Auch die Quanten-Fourier-Transformation
+  wird Bit für Bit über ein Netzwerk aus simulierten Hadamard- und Controlled-Phase-Gattern berechnet.
+
+• Die mathematische Emulation (Die Verschränkungs-Abkürzung):
+  Anstatt die Milliarden Toffoli-Gatter-Schritte für die Modulo-Rechnung mühsam auf der CPU nachzubauen (was den PC für
+  Stunden einfrieren lassen würde), berechnet der PC die zugrundeliegende mathematische Funktion f(x) = x^e mod N direkt
+  in einer hocheffizienten CPU-Schleife. Er simuliert das Endergebnis des physikalischen Kollapses durch eine manuelle
+  Zustands-Auslöschung im RAM.
+
+Zusammenfassung:
+Das Programm nutzt eine hochoptimierte, hybride Gatter-Emulation. Es liefert die korrekten physikalischen Antworten
+(die Schwingungs-Peaks des Shor-Algorithmus) und macht die Funktionsweise echter Quantengatter direkt auf der X-Achse
+deres Diagramms sichtbar.
+
+
+
+
