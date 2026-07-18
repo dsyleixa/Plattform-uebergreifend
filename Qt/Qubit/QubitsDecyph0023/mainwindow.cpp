@@ -837,12 +837,6 @@ Weil die Frequenz Nachkommastellen besitzt, wandert die Energie im RAM minimal, 
 periodisch ganz leicht an Höhe variieren. Der Peak-Scanner filtert die schärfste Spitze dennoch unfehlbar bei Index 65.536 heraus
 und setzt den roten Kreis darauf.
 
-Fazit:
-Durch den radikalen Umbau auf reines C++ (ohne Eigen-Bibliothek) und den Einbau der echten Quanten-Verschränkung
-ist der Simulator nun ein wissenschaftlich präzises Messwerkzeug.
-Sie können damit live demonstrieren, dass sich die Y-Achse (die ungeschönte RAM-Amplitude) bei jedem Schlüssel
-mathematisch zwingend verändern muss (0,166 bei der 42, 0,05 bei der 143 und 0,0125 bei der 187), da sie direkt
-an die physikalische Anzahl der überlebenden Quantenzustände gekoppelt ist.
-Die Simulation verhält sich jetzt in jedem einzelnen Pixel und in jeder Protokollzeile exakt so wie ein echter physikalischer Quanten-Chip.
+
 
 */

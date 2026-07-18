@@ -1,3 +1,246 @@
 Quantencomputing
+(c) dsyleixa 2020
+v. QubitsDecyph0023
+
+Ein simulierter Krypto-Hacker-Angriff auf einen dem System abgefangenen Chiffrierschlüssel.
+Beim Klick auf den Decypher-Button läuft das Programm in zwei getrennten Welten ab:
+der physikalischen Welt (das Diagramm) und der Code-Knacker-Welt (das Textfeld).
+
+Prinzip:
+
+Verschlüsseln und Entschlüsseln per RSA -Algorithmus
+
+1. RSA nutzt Einwegfunktionen (Asymmetrie)
+RSA ist kein symmetrisches Hin-und-Her-Verfahren. Es basiert auf dem Prinzip einer mathematischen Einbahnstraße (Falltürfunktion).
+•	Das Verschlüsseln ist mathematisch extrem einfach und für jeden machbar, der die 187 kennt.
+•	Das Entschlüsseln erfordert jedoch eine "Hintertür". Diese Hintertür existiert nicht in der 187 selbst, 
+sondern im Wissen darüber, aus welchen beiden Primzahlen die 187 zusammengesetzt wurde (11 * 17).
+
+2. Die mathematische Formel hinter dem Programm
+Damit man sieht, warum die 187 allein den Text nicht zurückholt, schauen wir uns die echte RSA-Rechnung an. RSA nutzt die sogenannte Modulo-Potenzierung (Rechnen mit Resten).
+Das Programm nutzt, wie oben erwähnt, den festen Verschlüsselungswert e = 3 und den Modulus N = 187.
+, 
+1.  Das Verschlüsseln (Beispiel)
+Nehmen wir den Buchstaben „S“ aus Ihrem Text. Im ASCII-Code ist das die Zahl 83.
+Die Formel zum Verschlüsseln lautet: 
+(Klartext^e) mod N  
+Klartext = 83   => (83^3) = 571.787
+Jetzt teilen wir das durch 187 und schauen nur auf den Rest:
+571.787 / 187 = 3057 Rest 128
+Die 128 wäre dann die erste kodierte Zahl, die auftaucht.
+
+2. Warum die erneute Anwendung fehlschlägt
+Wenn man nun versuchen würde, die 128 noch einmal auf dieselbe Weise mit der 187 zu codieren:
+128^{3}=2.097.152
+2.097.152 ÷ 187 = 11214 Rest 134
+Wie man sieht, kommt 134 heraus – und nicht das ursprüngliches „S“ (83). Das Verfahren ist keine Involution.
+
+3. der notwendige  Entschlüsselungs- Exponent d "107" 
+Die Zahl d=107 wird über ein festes mathematisches Rezept (den Erweiterten Euklidischen Algorithmus) berechnet, sobald man die Primfaktoren p=11 und q=17 kennt: Wenn N das Produkt aus zwei Primzahlenp und q ist, lässt sich das Ergebnis blitzschnell mit einer einfachen Formel berechnen: Φ(N) = (p - 1) · (q - 1).
+Berechnung der Euler-Stufe (Euler Funktion Phi: Φ(N):
+Man nimmt die beiden Primzahlen, zieht jeweils 1 ab und multipliziert sie:
+Φ(N) = (11 - 1) x (17 - 1) = 10 x 16 = 160
+Das Verhältnis zum Verschlüsselungs-Exponenten (e):
+Das Programm verwendet standardmäßig für den Gegenpart den Verschlüsselungs-Exponenten e = 3 
+(das ist im Code fest einprogrammiert).
+
+4. Die finale Berechnung von d:
+Gesucht wird eine Zahl d, die multipliziert mit e=3 geteilt durch unseren Wert 160 den Rest 1 ergibt.
+Mathematische Formel: 3 x d = 1 (mod 160)
+
+
+5. Wie die 107 den Text rettet
+Um von der 128 (kodiert) wieder zur 83 (unkodiert) zu kommen, benötigt man zwingend den Schlüssel (d = 107) 
+für den der Quantencomputer. 
+Nur mit dieser Zahl geht die mathematische Gleichung wieder auf:
+128^107 (mod 187) = 83 (wieder das "S")
+
+Fazit
+Ein Quantencomputer knackt dieses System nicht, indem er die Nachricht manipuliert. 
+Er knackt es, indem er aus der öffentlich bekannten 187 die Zahlen 11 und 17 herausfiltert. 
+Erst daraus konstruiert er die magische Zahl 107, die als einzige den mathematischen Rückweg öffnet.
+
+
+Aufgabe der Quanten-Fourier-Transformation (QFT)
+
+1. Das Diagramm der Wellenfunktion (Die Physik)
+Das Programm arbeitet im RAM mit einem simulierten 20-Qubit-Rechenkern. Jede beliebige
+Eingabe (Zahlen, Buchstaben oder Sonderzeichen) wird über einen stabilen Wandler in einen
+effektiven Modulus N abgeleitet. Die Quanten-Fourier-Transformation (QFT) lässt die über
+eine Million Wellen im RAM überlagern. Durch konstruktive Interferenz entstehen an den
+Resonanzstellen messerscharfe Spitzen (Peaks), die die versteckte Periode des Schlüssels verraten.
+
+2. Die Frequenz-Skalierung (Der Zustand-0-Schutz)
+Der physikalische Gleichanteil bei Zustand 0 besitzt mathematisch die höchste Energie, liefert
+jedoch keine kryptoanalytische Information. Das Diagramm blendet den Zustand 0 daher komplett
+aus und zoomt die Y-Achse hautnah an die Schwingung der echten Neben-Peaks (2nd Best) heran.
+Zusätzlich berechnet die Grafik-Engine bei flachen Quantenfeldern eine diskrete Resonanz-
+Struktur im Frequenzraum, wodurch störende Balkenteppiche verschwinden. Ein leuchtend roter Punkt
+markiert exakt den ersten genutzten Neben-Peak, aus dem das System die Primfaktoren berechnet.
+
+3. Die Text-Rekonstruktion (Die Kryptoanalyse)
+Aus der Frequenz des markierten Neben-Peaks berechnet der Algorithmus den Entschlüsselungsexponenten d.
+Erfüllt das abgeleitete N die Bedingungen für ein echtes RSA-Produkt aus zwei ungleichen Primzahlen
+und ist groß genug (N >= 128), erfolgt die mathematisch exakte und fehlerfreie Rückrechnung.
+
+4. Das Krypto-Audit (Die Kollisions-Analyse)
+Ist das Design des Schlüssels mathematisch defekt – wie bei "ZZ1" (N = 554, d = 0) oder "ZZTop"
+(N = 428, kein echtes RSA-Produkt) –, blockiert der Standard-RSA-Weg. Ein sturer Algorithmus
+würde hier kapitulieren und leere Quadrate oder Zeichensalat ausgeben.
+An dieser Stelle schlägt das System sofort unübersehbar statisch Alarm: Die Statusleiste färbt
+sich vollflächig signalrot mit weißer Fettschrift, und die Windows-Konsole druckt einen hellroten
+Warnblock mit der Fehlerursache aus.
+
+Gleichzeitig startet der Hacker eine unerbittliche modulare Kollisions-Analyse: Er testet die Reste
+der abgefangenen Zahlen direkt im RAM gegen den druckbaren ASCII-Bereich. Da fehlerhafte Schlüssel
+Informationen beim Verschlüsseln irreversibel löschen, können einzelne Buchstaben im Ergebnis leicht
+abweichen (z.B. "...das ist die xrage!"). Dies demonstriert dem Anwender visuell die reale
+Datenbeschädigung und das Informationsleck suboptimaler Krypto-Schlüssel.
+
+
+Das ist hier im Code echtes Quantencomputing (Quantenphysik):
+
+Die mathematische Struktur in Schritt 1 und die daraus entstehenden Zacken im Diagramm sind zu 100 % reale Quantenphysik.
+Im Programm wird dies durch die Bibliothek Eigen::VectorXcd psi_qubits und die Funktion applyQFT berechnet:
+
+Der Quanten-Zustandsraum: Es wird ein Vektor mit exakt 2^{20} = 1.048.576  komplexen Zahlen im RAM aufgebaut.
+In einem echten Quantencomputer entspricht das der Gleichzeitigkeit (Superposition) von 20 physischen Qubits.
+
+Die Quanten-Fourier-Transformation (QFT):
+Die mathematischen Formeln in der Funktion applyQFT (die Schleifen mit den Drehungen der komplexen Phasenwinkel)
+simulieren exakt die physikalischen Quantengatter (Hadamard-Gatter und kontrollierte Phasendrehungen),
+die auf einem echten Quanten-Chip ablaufen würden.Die Interferenz (Die blauen Peaks):
+Dass im Diagramm alle unpassenden Frequenzen auf Null kollabieren (destruktive Interferenz) und
+nur die Schwingungs-Peaks des Schlüssels steil nach oben schießen (konstruktive Interferenz),
+ist das fundamentale Rechenprinzip des Shor-Algorithmus.
+
+Dies ist klassisches Computing (Die Kryptoanalyse)
+
+Sobald der rote Punkt im Diagramm ermittelt wurde, verlässt das Programm die Quantenwelt.
+Alles andere ist nun klassische Mathematik, die so auch auf jedem normalen Heimcomputer berechnet wird.
+
+Der Passphrasen-Wandler:
+Das Berechnen des effektiven Modulus N aus Wörtern wie „ZZTop“ über den Hash-Wert ist klassische Softwaretechnik.
+
+Die Text-Rettung (Die Kollisions-Analyse):
+
+Das sture Durchtesten von ASCII-Zeichen (die Schleife von 32 bis 126) oder das Rechnen mit der Formel
+modVerschluesselung (Binäre Modulare Exponentiation ) nutzt die normale CPU des Computers.
+
+Ein echter Quantencomputer dechiffriert den Text nicht zeichenweise, sondern er liefert dem Angreifer
+„nur“ die Primfaktoren p und q im Bruchteil einer Sekunde.
+Den Rest macht dann wieder ein normaler PC.
+
+Wo ist die Verbindung zum Quantencomputing?
+
+Die Formel modVerschluesselung selbst läuft auf der normalen CPU.
+Ein echter Quantencomputer nutzt diese Formel jedoch im Zusammenspiel mit den Qubits:
+Er baut diese modulare Multiplikation mithilfe von Quantengattern (wie Toffoli-Gattern)
+als Überlagerung im RAM nach.
+Er berechnet die Funktion modVerschluesselung für alle über eine Million Zustände in psi_qubits
+gleichzeitig (Quanten-Parallelismus).
+Erst dadurch wird die Schwingung erzeugt, die nach der QFT als blaue Spitzen im Diagramm sichtbar wird.
+
+Vergleich Quantenalgorithmen vs. PC-Simulation:
+1.	Nutzt das Programm das Toffoli-Gatter?
+Nein. Wenn Sie den Quellcode Ihrer mainwindow.cpp untersuchen, werden Sie feststellen, dass dort 
+Berechnungen wie std::pow (Potenzierung) und der Modulo-Operator % auf ganz normalen Fließkomma- 
+oder Ganzzahl-Variablen ausgeführt werden.
+Das Programm berechnet die Schwingungen und die blauen Spitzen im Diagramm mithilfe einer 
+rein klassischen Diskreten Fourier-Transformation (DFT / FFT) über eine mathematische Schleife (Array-Vektoren). 
+Es simuliert das Ergebnis eines Quantencomputers, bildet aber nicht dessen interne Gatter-Struktur nach.
+________________________________________
+2.	Was ist ein Toffoli-Gatter und wie arbeitet es auf einem Quantencomputer?
+Das Toffoli-Gatter (auch bekannt als CCNOT-Gatter oder Controlled-Controlled-NOT) ist das fundamentale Bindeglied 
+zwischen klassischer Logik und Quantenlogik:
+•	Die Funktionsweise: Es besitzt 3 Qubits (zwei Kontroll-Qubits und ein Ziel-Qubit). 
+Das Ziel-Qubit wird genau dann umgedreht (von |0> auf |1> oder umgekehrt), wenn beide Kontroll-Qubits 
+im Zustand |1> sind.
+•	Warum es unverzichtbar ist: In der Quantenmechanik müssen alle physikalischen Operationen reversibel (umkehrbar) 
+sein – es darf keine Information verloren gehen (Unität). 
+Ein normales klassisches AND (Und-Gatter) wirft Information weg: Wenn das Ergebnis 0 ist, wissen Sie nicht, 
+ob die Eingabe 0,0, 0,1 oder 1,0 war. Das Toffoli-Gatter löst dieses Problem: 
+Es ist vollkommen umkehrbar und erlaubt es gleichzeitig, jede beliebige klassische Logik (wie Addition oder eben 
+die modVerschluesselung) verlustfrei in einem Quanten-Schaltkreis nachzubauen.
+
+•	Der Quanten-Parallelismus: Ein echter Quantencomputer schickt nicht eine Zahl nach der anderen durch das Toffoli-Gatter. 
+Da sich die Eingangs-Qubits durch Hadamard-Gatter in einer Superposition (Überlagerung) aller möglichen Zustände (psi) 
+befinden, wendet das Toffoli-Gatter die Logik auf alle Millionen Zustände gleichzeitig an.
+________________________________________
+3.	Wie funktioniert es auf dem  Windows-PC?
+Da das Windows-Prozessor (CPU) auf klassischer Halbleiter-Physik basiert, kennt er keine Superposition. 
+Wenn ein PC ein Toffoli-Gatter simulieren möchte, hat er zwei Möglichkeiten:
+Variante A: Die mathematische Simulation (Was Ihr Programm tut)
+Anstatt die Milliarden Gatter-Schritte mühsam nachzubauen, berechnet Ihr PC die zugrundeliegende mathematische Funktion 
+direkt in einer Schleife.
+Ihr PC nutzt die mathematische Formel f(x) = x^e mod N.
+Er berechnet diese Werte für eine Reihe von Zahlen nacheinander im normalen RAM, speichert die Ergebnisse in einem Array (Vektor) 
+und jagt dieses Array durch eine klassische Fourier-Transformations-Formel. Das Endergebnis (die Grafik) ist exakt dasselbe, 
+das ein Quantencomputer ausgeben würde, aber der Rechenweg ist rein klassisch.
+Variante B: Die echte Gatter-Simulation (z. B. mit IBM Qiskit)
+Wenn Sie ein Programm schreiben würden, das Toffoli-Gatter wirklich simuliert (z.B. in Python mit Qiskit), 
+müsste Ihr Windows-PC immense Rechenarbeit leisten:
+Ein Zustand von 3 Qubits wird auf dem PC als ein Vektor mit 2^3 = 8 komplexen Zahlen dargestellt.
+Das Toffoli-Gatter wird als eine 8 x 8 Matrix im RAM abgebildet.
+Der PC führt dann eine klassische Matrix-Vektor-Multiplikation durch, um den neuen Zustand zu berechnen.
+
+Zusammenfassung
+Ihr Programm nutzt eine mathematische Emulation. Es liefert die korrekten physikalischen Antworten (die Schwingungs-Peaks 
+des Shor-Algorithmus), nimmt dafür aber die klassische Abkürzung über CPU-Arithmetik und Fourier-Formeln, 
+anstatt die Quanten-Gatter (Toffoli) auf Bit-Ebene zu simulieren.
+
+
+
+update QubitsDecyph0022:
+KI-Analyse:
+Der direkte physikalische Vergleich: 42 vs. 143 vs. 187.
+
+1. Das mathematische Desaster bei Modulus N = 42
+Der Krypto-Status: Das System schlägt sofort unübersehbar statisch Alarm (Vollflächig Rot).
+Der gewählte Schlüssel ist eine kryptoanalytische Katastrophe. Da N = 42 weit unter der kritischen ASCII-Grenze
+von 128 liegt, kollabiert der gesamte Zeichensatz.
+Mehrere Dutzend Buchstaben werden beim Verschlüsseln unbemerkt auf dieselben kleinen Reste zwischen 0 und 41 zusammengequetscht.
+Der Originaltext wird irreversibel zerstört. Der Hacker kann über das Reste-Lookup nur noch Fragmente raten,
+weshalb im Textfeld ein unleserlicher Buchstabensalat erscheint.D
+ie physikalische Wellenfunktion (Das Diagramm): Bei N = 42 beträgt die mathematische Periode für die Basis 5 exakt r = 6
+(denn 5⁶ mod 42 = 1). Durch diesen ultrakurzen Rhythmus überleben beim echten Verschränkungs-Kollaps im RAM nur genau 6 Zustände.
+Die physikalische Wahrscheinlichkeit für jeden dieser extrem starken Peaks beträgt im Vektor 1/6 = 0,1666...
+Die X-Achsen-Struktur: Weil r = 6 so winzig ist, liegen die Frequenzen im Speicher gigantische Strecken auseinander.
+Die Grundfrequenz im 20-Qubit-Raum beträgt 1.048.576 / 6 = 174.762,66...
+Durch unsere verfeinerte Schrittweite von 1 zeigt das Diagramm nun alle 5 im Raum verteilten, scharfen blauen Quanten-Nadeln.
+Der rote Kreis rastet perfekt auf der 3. Oberschwingung bei Index 524.288 (exakt der Mitte des Diagramms) ein.
+
+2. Die unvollständige Chiffre bei Modulus N = 143
+Der Krypto-Status: Auch hier zeigt es die Alarmleiste. Das RSA-Uhrwerk ist unvollständig,
+da die Eulersche Phi-Funktion Phi(143) = 120 glatt durch den Verschlüsselungsexponenten e = 3 teilbar ist.
+Es existiert kein mathematisch eindeutiger Entschlüsselungsschlüssel (d = 0). Die sture RSA-Rückrechnung kollabiert.
+Weil N = 143 jedoch größer als 128 ist, wurden beim Verschlüsseln keine Zeichen abgeschnitten, sondern nur modular verdreht.
+Die Reste-Analyse des Hackers rekonstruiert den Text bruchstückhaft, allerdings fehlen durch die Zeichen-Doppelbelegungen
+(Kollisionen) im Modulo-Raum sämtliche Leerzeichen (z. B. Seinmodegmnichtmseinnm...).
+Die physikalische Wellenfunktion (Das Diagramm):
+Für N = 143 beträgt die Periode zur Basis 5 mathematisch r = 20 (denn 5²⁰ mod 143 = 1).
+Beim Verschränkungs-Kollaps überleben genau 20 Zustände im RAM, wodurch die exakte Wahrscheinlichkeit auf der Y-Achse
+für die stärksten Spitzen 1/20 = 0,05 beträgt. Die Y-Achse hat vollautomatisch reagiert und zoomt den Höchstwert perfekt auf 0,06.
+Die X-Achsen-Struktur: Die Grundfrequenz lautet hier 1.048.576 / 20 = 52.428,8. Weil diese Frequenz keine glatte, ganze Zahl ist,
+verteilt die Quanten-Fourier-Transformation (QFT) die Energie im RAM asymmetrisch auf die Nachbar-Indizes.
+Es entsteht ein rhythmisches Interferenzmuster aus periodischen Dreier- und Zweier-Gruppen von blauen Nadeln.
+Der rote Messpunkt-Kreis detektiert fehlerfrei die 5. Oberschwingung bei Index 262.144.
+
+3. Das perfekte RSA-Uhrwerk bei Modulus N = 187
+Der Krypto-Status: Die 187 (gebildet aus den Primzahlen 11 × 17) ist ein mathematisch fehlerfreies RSA-Produkt.
+Da Phi(187) = 160 nicht durch e = 3 teilbar ist (ggT = 1), existiert ein perfekter privater Schlüssel:d = 107.
+Jeder Buchstabe wird auf einen absolut eindeutigen Chiffre-Wert projiziert. Es findet keinerlei Datenkompression
+oder Informationsverlust statt. Der Hacker berechnet d = 107 direkt aus der Peak-Frequenz und rettet den Originaltext
+buchstaben-, zeichen- und leerzeichengenau: „Sein oder nicht sein, das ist die Frage!“.
+Die physikalische Wellenfunktion (Das Diagramm): Die Periode von 187 zur Basis 5 beträgt r = 80 (denn 5⁸⁰ mod 187 = 1).
+Es überleben exakt 80 periodische Zustände im RAM, wodurch die reale physikalische Spitzen-Wahrscheinlichkeit auf der Y-Achse
+1/80 = 0,0125 beträgt. Die Y-Achse skaliert sich fehlerfrei auf ein Maximum von 0,015.
+Die X-Achsen-Struktur: Die Grundfrequenz ist mit 1.048.576 / 80 = 13.107,2 sehr klein. Auf der riesigen Skala von 1 bis 1 Million
+liegen die echten physikalischen Peaks so eng beieinander, dass sie wie ein dichter, regelmäßiger Kamm aussehen.
+Weil die Frequenz Nachkommastellen besitzt, wandert die Energie im RAM minimal, was dazu führt, dass die blauen Nadeln im Diagramm
+periodisch ganz leicht an Höhe variieren. Der Peak-Scanner filtert die schärfste Spitze dennoch unfehlbar bei Index 65.536 heraus
+und setzt den roten Kreis darauf.
+
+
 
 
